@@ -3,8 +3,8 @@ import sys
 import argparse
 import os
 import daemon
-from spotify_controller import SpotifyController
-from socket_server import SocketServer
+from .spotify_controller import SpotifyController
+from .socket_server import SocketServer
 
 def signal_handler(sig, frame, server):
     server.stop_server()

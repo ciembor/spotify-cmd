@@ -1,14 +1,13 @@
-# spotify-cmd v0.1.0
+# 💚 spotify-cmd v0.1.2
 
-`spotify-cmd` is a Spotify client that allows controlling the playback of albums and playlists from a *user's library* (based on names or Spotify URIs) and individual tracks (based solely on Spotify URIs). The application is intended for use with [spotifyd](https://github.com/Spotifyd/spotifyd), but it works with any Spotify-enabled device.
+`spotify-cmd` is a Spotify client that allows controlling the playback of **albums and playlists from a user's library** (based on names or Spotify URIs) and individual tracks (based solely on Spotify URIs). The application is intended for use with [spotifyd](https://github.com/Spotifyd/spotifyd), but it works with any Spotify-enabled device.
 
 ## Installation
 
-Ensure you have Python 3 installed. Then, install the project dependencies using `pip3`:
+Ensure you have Python 3 installed. Then, install the project using `pip3`:
 
 ```bash
-pip3 install -r ./src/spotify-cmd-daemon/requirements.txt
-pip3 install -r ./src/spotify-cmd/requirements.txt
+pip3 install spotify-cmd
 ```
 
 ## Configuration
@@ -17,9 +16,9 @@ The application configuration should be located in `~/.config/spotify-cmd/config
 
 ```ini
 [SPOTIFY]
-client_id = your_client_id       # Required. Your Spotify application's client ID.
-client_secret = your_client_secret # Required. Your Spotify application's client secret.
-device_name = your_device_name   # Required. The name of your Spotify playback device.
+client_id = your_client_id
+client_secret = your_client_secret
+device_name = your_device_name
 redirect_uri = http://localhost:8888/callback
 
 [SPOTIFY_CMD_DAEMON]
@@ -27,7 +26,8 @@ socket_path = /tmp/spotify-cmd-daemon.sock
 socket_buffer_size = 1024
 ```
 
-* **client_id**, **client_secret**, and **device_name** are required. Obtain these by creating an app at the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard/applications).
+* **client_id**, **client_secret** are required. Obtain these by creating an app at the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard/applications).
+* **device_name** is required. `spotify-cmd-daemon` will force to use it even if other is currently active.
 * **redirect_uri** is used for Spotify authentication. If not set, it defaults to 'http://localhost:8888/callback'.
 * **socket_path** specifies the Unix socket path for the daemon. Defaults to '/tmp/spotify-cmd-daemon.sock'.
 * **socket_buffer_size** defines the buffer size for socket communication. Defaults to 1024.
