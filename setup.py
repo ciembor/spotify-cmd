@@ -6,13 +6,13 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="spotify-cmd",
-    version="0.1.2",
+    version="0.1.3",
     packages=find_packages(),
     install_requires=[
         'argparse==1.4.0',
         'configparser==5.0.2',
         'spotipy==2.23.0',
-        'daemon==1.2'
+        'python-daemon==3.0.1'
     ],
     entry_points={
         'console_scripts': [

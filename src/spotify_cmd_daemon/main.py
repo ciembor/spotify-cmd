@@ -23,9 +23,9 @@ args = parser.parse_args()
 spotify = SpotifyController()
 server = SocketServer(spotify)
 
-lock_file = "/tmp/myapp.lock"
+lock_file = "/tmp/spotify-cmd-daemon.lock"
 if os.path.exists(lock_file):
-    print("Application already running.")
+    print(f"Daemon already running ({lock_file} exists).")
     sys.exit(1)
 else:
     with open(lock_file, 'w'): pass
