@@ -7,8 +7,8 @@ sys.path.insert(0, base_path)
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from spotipy.exceptions import SpotifyException
-import operations
-from operations.helpers import get_resource_uri
+from . import operations
+from .operations.helpers import get_resource_uri
 from config import Config
 from socket_message import SocketMessage
 

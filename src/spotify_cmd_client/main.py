@@ -1,7 +1,7 @@
 import socket
 import argparse
 import json
-from client import Client
+from .client import Client
 
 def main():
     # Parse arguments
@@ -9,10 +9,10 @@ def main():
     subparsers = parser.add_subparsers(dest='command', required=True)
 
     # Basic commands
-    subparsers.add_parser('play', help='start playback')
-    subparsers.add_parser('pause', help='pause playback')
-    subparsers.add_parser('next', help='play next track')
-    subparsers.add_parser('previous', help='play previous track')
+    play_parser = subparsers.add_parser('play', help='start playback')
+    pause_parser = subparsers.add_parser('pause', help='pause playback')
+    next_parser = subparsers.add_parser('next', help='play next track')
+    prev_parser = subparsers.add_parser('previous', help='play previous track')
 
     # Set commands
     set_parser = subparsers.add_parser('set', help='player settings')
@@ -34,17 +34,16 @@ def main():
     get_subparsers.add_parser('albums', help='get albums')
 
     # Play specific item
-    play_parser = subparsers.add_parser('play', help='play specific item')
-    play_subparsers = play_parser.add_subparsers(dest='play_type')
+    play_type_parser = play_parser.add_subparsers(dest='play_type')
 
-    play_playlist_parser = play_subparsers.add_parser('playlist', help='play a specific playlist')
+    play_playlist_parser = play_type_parser.add_parser('playlist', help='play a specific playlist')
     play_playlist_parser.add_argument('name', type=str, help='playlist name')
 
-    play_album_parser = play_subparsers.add_parser('album', help='play a specific album')
+    play_album_parser = play_type_parser.add_parser('album', help='play a specific album')
     play_album_parser.add_argument('name', type=str, help='album name')
 
-    play_album_parser = play_subparsers.add_parser('uri', help='play resource by spotify URI')
-    play_album_parser.add_argument('uri', type=str, help='spotify uri')
+    play_uri_parser = play_type_parser.add_parser('uri', help='play resource by spotify URI')
+    play_uri_parser.add_argument('uri', type=str, help='spotify uri')
 
     parser.add_argument('--format', choices=['json', 'text', 'verbose'], default='text', help='output format')
 
