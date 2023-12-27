@@ -7,3 +7,4 @@ from .resume_playback import resume_playback
 from .set_shuffle import set_shuffle
 from .set_volume import set_volume
 from .start_playback import start_playback
+from .search import search

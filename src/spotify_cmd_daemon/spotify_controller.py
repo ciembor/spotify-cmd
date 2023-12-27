@@ -49,12 +49,21 @@ class SpotifyController:
                 self.handle_set(command_data)
             elif command == 'get':
                 self.handle_get(command_data)
+            elif command == 'find':
+                self.handle_search(command_data)
         except SpotifyException as e:
             print(f"Spotify error: {e}")
             self.response = {"error": str(e)}
         except Exception as e:
             print(f"Error: {e}")
             self.response = {"error": str(e)}
+
+    def handle_search(self, command_data):
+        type = comand_data.get('type')
+        search_query = command_data.get('value')
+
+        self.response = operations.search(self.spotipy_client, search_query, type)
+
 
     def handle_play(self, command_data):
         type = command_data.get('type')
