@@ -45,6 +45,10 @@ def main():
     play_uri_parser = play_type_parser.add_parser('uri', help='play resource by spotify URI')
     play_uri_parser.add_argument('uri', type=str, help='spotify uri')
 
+    find_parser = subparsers.add_parser('find', help='find items based on search query')
+    find_parser.add_argument('search_type', choices=['album', 'artist', 'playlist', 'track'], help='type of item to find')
+    find_parser.add_argument('search_query', type=str, help='search query string')
+
     parser.add_argument('--format', choices=['json', 'text', 'verbose'], default='text', help='output format')
 
     args = parser.parse_args()
@@ -52,8 +56,14 @@ def main():
     payload = {
         'command': args.command,
         'setting': getattr(args, 'setting', None),
-        'type': getattr(args, 'get_type', None) or getattr(args, 'play_type', None),
-        'value': getattr(args, 'state', None) or getattr(args, 'level', None) or getattr(args, 'name', None) or getattr(args, 'uri', None)
+        'type': (getattr(args, 'get_type', None) or
+                 getattr(args, 'play_type', None) or
+                 getattr(args, 'search_type', None)),
+        'value': (getattr(args, 'state', None) or
+                  getattr(args, 'level', None) or
+                  getattr(args, 'name', None) or
+                  getattr(args, 'uri', None) or
+                  getattr(args, 'search_query', None))
     }
 
     client = Client()

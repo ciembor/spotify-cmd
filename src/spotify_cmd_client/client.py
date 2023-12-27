@@ -59,6 +59,8 @@ class Client:
             self.__print_collection('albums', data['albums'])
         elif 'playlists' in data:
             self.__print_collection('playlists', data['playlists'])
+        elif 'search_result' in data:
+            self.print_search_result(data['search_result'])
 
     def __print_collection(self, type, items):
         print("──────────────────────────────────────────")
@@ -67,6 +69,12 @@ class Client:
                 self.__print_album(item)
             elif (type=='playlists'):
                 self.__print_playlist(item)
+            print("──────────────────────────────────────────")
+
+    def __print_search_result(self, items):
+        print("──────────────────────────────────────────")
+        for item in items:
+            print(f"URI: spotify:playlist:{item['spotify_id']}")
             print("──────────────────────────────────────────")
 
     def __print_album(self, album_data):
