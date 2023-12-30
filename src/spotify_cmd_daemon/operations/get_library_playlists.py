@@ -1,3 +1,5 @@
+from .presenters.playlists_presenter import PlaylistsPresenter
+
 def get_library_playlists(spotipy_client):
     playlists = []
     limit = 50
@@ -5,17 +7,10 @@ def get_library_playlists(spotipy_client):
 
     while True:
         results = spotipy_client.current_user_playlists(limit=limit, offset=offset)
-        for item in results['items']:
-            playlist_info = {
-                'spotify_id': item['id'],
-                'type': 'playlist',
-                'owner': item['owner']['display_name'],
-                'name': item['name']
-            }
-            playlists.append(playlist_info)
+        playlists += PlaylistsPresenter(results['items']).format()
 
         offset += limit
         if len(results['items']) < limit:
             break
 
-    return { 'playlists': playlists }
+    return {'playlists': playlists}

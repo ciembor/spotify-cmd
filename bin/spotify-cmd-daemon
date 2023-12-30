@@ -1,3 +1,5 @@
 #!/usr/bin/env bash
 
-python3 "$(dirname "$0")/../src/spotify_cmd_daemon/main.py" "$@"
+export PYTHONPATH="$(dirname "$0")/../src:$PYTHONPATH"
+python3 -c 'from spotify_cmd_daemon.main import main; main()' "$@"
+

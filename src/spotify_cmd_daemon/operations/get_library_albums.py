@@ -1,3 +1,5 @@
+from .presenters.albums_presenter import AlbumsPresenter
+
 def get_library_albums(spotipy_client):
     albums = []
     limit = 50
@@ -5,18 +7,12 @@ def get_library_albums(spotipy_client):
 
     while True:
         results = spotipy_client.current_user_saved_albums(limit=limit, offset=offset)
-        for item in results['items']:
-            album = item['album']
-            album_info = {
-                'spotify_id': album['id'],
-                'type': 'album',
-                'artists': ', '.join([artist['name'] for artist in album['artists']]),
-                'name': album['name']
-            }
-            albums.append(album_info)
+        raw_albums = list(map(lambda item: item['album'], results['items']))
+
+        albums += AlbumsPresenter(raw_albums).format()
 
         offset += limit
         if len(results['items']) < limit:
             break
 
-    return { 'albums': albums }
+    return {'albums': albums}

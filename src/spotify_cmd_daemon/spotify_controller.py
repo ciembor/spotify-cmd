@@ -59,7 +59,7 @@ class SpotifyController:
             self.response = {"error": str(e)}
 
     def handle_search(self, command_data):
-        type = comand_data.get('type')
+        type = command_data.get('type')
         search_query = command_data.get('value')
 
         self.response = operations.search(self.spotipy_client, search_query, type)
