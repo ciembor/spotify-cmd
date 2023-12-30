@@ -59,8 +59,10 @@ class Client:
             self.__print_collection('albums', data['albums'])
         elif 'playlists' in data:
             self.__print_collection('playlists', data['playlists'])
-        elif 'search_result' in data:
-            self.print_search_result(data['search_result'])
+        elif 'artists' in data:
+            self.__print_collection('artists', data['artists'])
+        elif 'tracks' in data:
+            self.__print_collection('tracks', data['tracks'])
 
     def __print_collection(self, type, items):
         print("──────────────────────────────────────────")
@@ -69,12 +71,10 @@ class Client:
                 self.__print_album(item)
             elif (type=='playlists'):
                 self.__print_playlist(item)
-            print("──────────────────────────────────────────")
-
-    def __print_search_result(self, items):
-        print("──────────────────────────────────────────")
-        for item in items:
-            print(f"URI: spotify:playlist:{item['spotify_id']}")
+            elif (type=='artists'):
+                self.__print_artist(item)
+            elif (type=='tracks'):
+                self.__print_track(item)
             print("──────────────────────────────────────────")
 
     def __print_album(self, album_data):
@@ -82,7 +82,17 @@ class Client:
         print(f"Album: {album_data['name']}")
         print(f"URI: spotify:album:{album_data['spotify_id']}")
 
+    def __print_artist(self, artist_data):
+        print(f"Artist: {artist_data['name']}")
+        print(f"Followers: {artist_data['followers']}")
+        print(f"URI: spotify:artist:{artist_data['spotify_id']}")
+
     def __print_playlist(self, playlist_data):
         print(f"Owner: {playlist_data['owner']}")
         print(f"Name: {playlist_data['name']}")
         print(f"URI: spotify:playlist:{playlist_data['spotify_id']}")
+
+    def __print_track(self, track_data):
+        print(f"Artist: {track_data['artists']}")
+        print(f"Name: {track_data['name']}")
+        print(f"URI: spotify:playlist:{track_data['spotify_id']}")
