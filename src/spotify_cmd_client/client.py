@@ -9,6 +9,7 @@ import json
 from socket_message import SocketMessage
 from socket_data_handler import SocketDataHandler
 from config import Config
+from .data_presenter import DataPresenter
 
 class Client:
     def __init__(self):
@@ -43,56 +44,9 @@ class Client:
                     formatted_response = json.dumps(response_dict['payload'], indent=2)
                     print(formatted_response)
                 else:
-                    self.__print_output(response_dict['payload'])
+                    DataPresenter.print_output(response_dict['payload'])
         except socket.error as msg:
             print(f"Error receiving response from daemon: {msg}")
 
     def close(self):
         self.sock.close()
-
-    def __print_output(self, data):
-        if 'error' in data:
-            print(f"Error: {data['error']}")
-        elif 'notification' in data:
-            print(data['notification'])
-        elif 'albums' in data:
-            self.__print_collection('albums', data['albums'])
-        elif 'playlists' in data:
-            self.__print_collection('playlists', data['playlists'])
-        elif 'artists' in data:
-            self.__print_collection('artists', data['artists'])
-        elif 'tracks' in data:
-            self.__print_collection('tracks', data['tracks'])
-
-    def __print_collection(self, type, items):
-        print("──────────────────────────────────────────")
-        for item in items:
-            if (type=='albums'):
-                self.__print_album(item)
-            elif (type=='playlists'):
-                self.__print_playlist(item)
-            elif (type=='artists'):
-                self.__print_artist(item)
-            elif (type=='tracks'):
-                self.__print_track(item)
-            print("──────────────────────────────────────────")
-
-    def __print_album(self, album_data):
-        print(f"Artist: {album_data['artists']}")
-        print(f"Album: {album_data['name']}")
-        print(f"URI: spotify:album:{album_data['spotify_id']}")
-
-    def __print_artist(self, artist_data):
-        print(f"Artist: {artist_data['name']}")
-        print(f"Followers: {artist_data['followers']}")
-        print(f"URI: spotify:artist:{artist_data['spotify_id']}")
-
-    def __print_playlist(self, playlist_data):
-        print(f"Owner: {playlist_data['owner']}")
-        print(f"Name: {playlist_data['name']}")
-        print(f"URI: spotify:playlist:{playlist_data['spotify_id']}")
-
-    def __print_track(self, track_data):
-        print(f"Artist: {track_data['artists']}")
-        print(f"Name: {track_data['name']}")
-        print(f"URI: spotify:playlist:{track_data['spotify_id']}")
