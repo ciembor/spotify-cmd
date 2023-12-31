@@ -42,6 +42,7 @@ socket_buffer_size = 1024
 * `play`, `pause`, `next`, `previous`: Controls playback.
 * `set shuffle <on|off>`: Toggles shuffle mode.
 * `set volume <0-100>`: Sets the volume level.
+* `find <search_type> <query>`: Searches for items on Spotify. Acceptable search types are `album`, `artist`, `playlist`, `track`, `episode`, and `show`.
 
 ## Output Format
 

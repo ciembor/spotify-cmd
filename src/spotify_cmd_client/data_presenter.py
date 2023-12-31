@@ -1,9 +1,35 @@
 class DataPresenter:
     PRINT_TEMPLATES = {
-        'albums': [('Artist', 'artists'), ('Album', 'name'), ('URI', lambda d: f"spotify:album:{d['spotify_id']}")],
-        'artists': [('Artist', 'name'), ('Followers', 'followers'), ('URI', lambda d: f"spotify:artist:{d['spotify_id']}")],
-        'playlists': [('Owner', 'owner'), ('Name', 'name'), ('URI', lambda d: f"spotify:playlist:{d['spotify_id']}")],
-        'tracks': [('Artist', 'artists'), ('Name', 'name'), ('URI', lambda d: f"spotify:track:{d['spotify_id']}")]
+        'albums': [
+            ('Artist', 'artists'),
+            ('Album', 'name'),
+            ('URI', lambda d: f"spotify:album:{d['spotify_id']}")
+        ],
+        'artists': [
+            ('Artist', 'name'),
+            ('Followers', 'followers'),
+            ('URI', lambda d: f"spotify:artist:{d['spotify_id']}")
+        ],
+        'playlists': [
+            ('Owner', 'owner'),
+            ('Name', 'name'),
+            ('URI', lambda d: f"spotify:playlist:{d['spotify_id']}")
+        ],
+        'tracks': [
+            ('Artist', 'artists'),
+            ('Name', 'name'),
+            ('URI', lambda d: f"spotify:track:{d['spotify_id']}")
+        ],
+        'episodes': [
+            ('Name', 'name'),
+            ('Description', 'description'),
+            ('URI', lambda d: f"spotify:episode:{d['spotify_id']}")
+        ],
+        'shows': [
+            ('Name', 'name'),
+            ('Description', 'description'),
+            ('URI', lambda d: f"spotify:show:{d['spotify_id']}")
+        ],
     }
 
     @staticmethod
