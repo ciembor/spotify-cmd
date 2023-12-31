@@ -71,7 +71,7 @@ Developers can create interfaces for `spotify-cmd-daemon` using `/tmp/spotify-cm
 * Displaying tracks from specific albums or playlists.
 * MPRIS D-Bus interface support to reduce server queries.
 * `spotify-cmd-ui`: A ncurses-based UI for track display and control, working with the same daemon.
-* Search functionality.
+* ~~Search functionality.~~ [Done in 0.1.4]
 * Support for other resource types like artists.
 
 ## License
