@@ -14,5 +14,9 @@ def search(spotipy_client, search_query, resource_type):
         result = PlaylistsPresenter(items).format()
     elif resource_type == 'track':
         result = TracksPresenter(items).format()
+    elif resource_type == 'show':
+        result = ShowsPresenter(items).format()
+    elif resource_type == 'episode':
+        result = EpisodesPresenter(items).format()
 
     return { f"{resource_type}s": result }

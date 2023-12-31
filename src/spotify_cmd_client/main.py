@@ -46,7 +46,7 @@ def main():
     play_uri_parser.add_argument('uri', type=str, help='spotify uri')
 
     find_parser = subparsers.add_parser('find', help='find items based on search query')
-    find_parser.add_argument('search_type', choices=['album', 'artist', 'playlist', 'track'], help='type of item to find')
+    find_parser.add_argument('search_type', choices=['album', 'artist', 'playlist', 'track', 'episode', 'show'], help='type of item to find')
     find_parser.add_argument('search_query', type=str, help='search query string')
 
     parser.add_argument('--format', choices=['json', 'text', 'verbose'], default='text', help='output format')
