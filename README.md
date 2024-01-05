@@ -55,11 +55,12 @@ Select output format using the `--format` flag:
 ## Usage Examples
 
 ``` bash
-./bin/spotify-cmd get albums
-./bin/spotify-cmd get playlists
-./bin/spotify-cmd play album "Listening Tree"
-./bin/spotify-cmd play playlist "Discover Weekly"
-./bin/spotify-cmd play uri spotify:album:5zKTfU3vyuZfLgtYRfJyza
+spotify-cmd get albums
+spotify-cmd get playlists
+spotify-cmd play album "Listening Tree"
+spotify-cmd play playlist "Discover Weekly"
+spotify-cmd play uri spotify:album:5zKTfU3vyuZfLgtYRfJyza
+spotify-cmd find artist "Nils Frahm"
 ```
 
 ## For Developers
