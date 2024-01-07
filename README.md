@@ -4,7 +4,7 @@
 
 ## Installation
 
-Ensure you have Python 3 installed. Then, install the project using `pip3`:
+Ensure you have Python 3 installed. Package is available on PyPi: https://pypi.org/project/spotify-cmd/. Install it using `pip3`:
 
 ```bash
 pip3 install spotify-cmd
