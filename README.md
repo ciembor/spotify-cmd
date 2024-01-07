@@ -74,6 +74,7 @@ Developers can create interfaces for `spotify-cmd-daemon` using `/tmp/spotify-cm
 * `spotify-cmd-ui`: A ncurses-based UI for track display and control, working with the same daemon.
 * ~~Search functionality.~~ [Done in 0.1.4]
 * Support for other resource types like artists.
+* Config instructions after installation / creation of default config.
 
 ## License
 
