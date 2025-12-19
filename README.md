@@ -1,4 +1,4 @@
-# 📻 spotify-cmd v0.1.8
+# 📻 spotify-cmd v0.1.9
 
 `spotify-cmd` is a Spotify client that allows controlling the playback of **albums and playlists from a user's library** (based on names or Spotify URIs) and individual tracks (based solely on Spotify URIs). The application is intended for use with [spotifyd](https://github.com/Spotifyd/spotifyd), but it works with any Spotify-enabled device.
 
@@ -43,6 +43,7 @@ socket_buffer_size = 1024
 * `set shuffle <on|off>`: Toggles shuffle mode.
 * `set volume <0-100>`: Sets the volume level.
 * `find <search_type> <query>`: Searches for items on Spotify. Acceptable search types are `album`, `artist`, `playlist`, `track`, `episode`, and `show`.
+* `version`: Prints the installed `spotify-cmd` version.
 
 ## Output Format
 
@@ -66,6 +67,10 @@ spotify-cmd find artist "Nils Frahm"
 ## For Developers
 
 Developers can create interfaces for `spotify-cmd-daemon` using `/tmp/spotify-cmd-daemon.sock`. Socket handling and data format details are in the `./src/common` directory (there is no documentation).
+
+Daemon helper:
+
+* `spotify-cmd-daemon --version` prints the installed daemon version.
 
 ## Planned Features and Upcoming Development
 

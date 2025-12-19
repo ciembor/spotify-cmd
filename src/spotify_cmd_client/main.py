@@ -1,12 +1,20 @@
 import socket
 import argparse
 import json
+from importlib.metadata import version, PackageNotFoundError
 from .client import Client
+
+def get_pkg_version():
+    try:
+        return version("spotify-cmd")
+    except PackageNotFoundError:
+        return "unknown"
 
 def main():
     # Parse arguments
     parser = argparse.ArgumentParser(description='Client for controlling Spotify playback through a spotify-cmd-daemon.')
     subparsers = parser.add_subparsers(dest='command', required=True)
+    subparsers.add_parser('version', help='show spotify-cmd version and exit')
 
     # Basic commands
     play_parser = subparsers.add_parser('play', help='start playback')
@@ -52,6 +60,14 @@ def main():
     parser.add_argument('--format', choices=['json', 'text', 'verbose'], default='text', help='output format')
 
     args = parser.parse_args()
+
+    if args.version == 'version':
+        print(get_pkg_version())
+        return
+
+    if args.command == 'version':
+        print(get_pkg_version())
+        return
 
     payload = {
         'command': args.command,
