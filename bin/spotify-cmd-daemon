@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 
 export PYTHONPATH="$(dirname "$0")/../src:$PYTHONPATH"
+export SPOTIPY_CLIENT_USERNAME="spotify-cmd"
 python3 -c 'from spotify_cmd_daemon.main import main; main()' "$@"
-
