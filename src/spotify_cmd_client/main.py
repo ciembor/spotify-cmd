@@ -61,11 +61,7 @@ def main():
 
     args = parser.parse_args()
 
-    if args.version == 'version':
-        print(get_pkg_version())
-        return
-
-    if args.command == 'version':
+    if getattr(args, 'command', None) == 'version':
         print(get_pkg_version())
         return
 
