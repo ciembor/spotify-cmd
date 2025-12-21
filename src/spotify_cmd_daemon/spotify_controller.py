@@ -37,9 +37,20 @@ class SpotifyController:
 
     def refresh_device_id(self):
         devices = self.spotipy_client.devices()
-        device = next((d for d in devices.get('devices', []) if d.get('name') == self.device_name), None)
-        if not device:
-            raise Exception(f"Device '{self.device_name}' not found.")
+        device_list = devices.get('devices', [])
+
+        if self.device_name:
+            device = next((d for d in device_list if d.get('name') == self.device_name), None)
+            if not device:
+                raise Exception(f"Device '{self.device_name}' not found.")
+        else:
+            # Use currently active device; if none active, fall back to the first available.
+            device = next((d for d in device_list if d.get('is_active')), None)
+            if not device and device_list:
+                device = device_list[0]
+            if not device:
+                raise Exception("No active device found.")
+
         self.device_id = device['id']
         return device
 
@@ -48,7 +59,7 @@ class SpotifyController:
         for _ in range(retries):
             try:
                 device = self.refresh_device_id()
-                if not device.get('is_active'):
+                if self.device_name and not device.get('is_active'):
                     # Make target device the active one.
                     self.spotipy_client.transfer_playback(device_id=self.device_id, force_play=force_play)
                 return device

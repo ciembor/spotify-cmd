@@ -1,4 +1,4 @@
-# 📻 spotify-cmd v0.1.10
+# 📻 spotify-cmd v0.1.11
 
 `spotify-cmd` is a Spotify client that allows controlling the playback of **albums and playlists from a user's library** (based on names or Spotify URIs) and individual tracks (based solely on Spotify URIs). The application is intended for use with [spotifyd](https://github.com/Spotifyd/spotifyd), but it works with any Spotify-enabled device.
 
@@ -18,7 +18,7 @@ The application configuration should be located in `~/.config/spotify-cmd/config
 [SPOTIFY]
 client_id = your_client_id
 client_secret = your_client_secret
-device_name = your_device_name
+device_name = your_device_name  # optional; if omitted, uses the current active device
 redirect_uri = http://localhost:8888/callback
 
 [SPOTIFY_CMD_DAEMON]
@@ -27,7 +27,7 @@ socket_buffer_size = 1024
 ```
 
 * **client_id**, **client_secret** are required. Obtain these by creating an app at the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard/applications).
-* **device_name** is required. `spotify-cmd-daemon` will force to use it even if other is currently active.
+* **device_name** is optional. If set, `spotify-cmd-daemon` will force to use it even if another is active; if omitted, it uses the current active device.
 * **redirect_uri** is used for Spotify authentication. If not set, it defaults to 'http://localhost:8888/callback'.
 * **socket_path** specifies the Unix socket path for the daemon. Defaults to '/tmp/spotify-cmd-daemon.sock'.
 * **socket_buffer_size** defines the buffer size for socket communication. Defaults to 1024.
@@ -59,7 +59,6 @@ Select output format using the `--format` flag:
 spotify-cmd get albums
 spotify-cmd get playlists
 spotify-cmd play album "Listening Tree"
-spotify-cmd play playlist "Discover Weekly"
 spotify-cmd play uri spotify:album:5zKTfU3vyuZfLgtYRfJyza
 spotify-cmd find artist "Nils Frahm"
 ```
