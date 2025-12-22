@@ -10,6 +10,14 @@ Ensure you have Python 3 installed. Package is available on PyPi: https://pypi.o
 pip3 install spotify-cmd
 ```
 
+### Debian/Ubuntu (apt)
+
+```bash
+echo "deb [trusted=yes] https://maciej-ciemborowicz.eu/apt ./" | sudo tee /etc/apt/sources.list.d/spotify-cmd.list
+sudo apt update
+sudo apt install spotify-cmd
+```
+
 ## Configuration
 
 The application configuration should be located in `~/.config/spotify-cmd/config.ini`. Below is a detailed guide on each configuration option:
