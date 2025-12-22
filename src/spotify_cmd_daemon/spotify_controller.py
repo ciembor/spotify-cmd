@@ -18,8 +18,8 @@ class SpotifyController:
         config = Config.get_instance()
         scope = 'user-library-read,user-read-playback-state,user-modify-playback-state,playlist-read-private'
 
-        # Force a stable cache path so auth does not depend on cwd or env.
-        cache_path = os.path.expanduser('~/.config/spotify-cmd/cache/token-cache')
+        # Use the config directory for a consistent cache location across users/services.
+        cache_path = os.path.join(config.config_dir, 'cache', 'token-cache')
         os.makedirs(os.path.dirname(cache_path), exist_ok=True)
         cache_handler = CacheFileHandler(cache_path=cache_path, username="spotify-cmd")
 

@@ -18,11 +18,12 @@ class Config:
             self.load_config()
 
     def load_config(self):
-        config_dir = os.path.expanduser('~/.config/spotify-cmd')
-        config_file = os.path.join(config_dir, 'config.ini')
+        config_file = self._find_config_file()
+        if not config_file:
+            raise Exception("Config file not found in any supported location.")
 
-        if not os.path.exists(config_file):
-            raise Exception(f"Config file not found: {config_file}")
+        self.config_path = config_file
+        self.config_dir = os.path.dirname(config_file)
 
         config = configparser.ConfigParser()
         config.read(config_file)
@@ -36,3 +37,20 @@ class Config:
 
         if not self.spotify_client_id or not self.spotify_client_secret:
             raise Exception("Spotify client_id and client_secret must be set in config.ini")
+
+    def _find_config_file(self):
+        explicit = os.environ.get("SPOTIFY_CMD_CONFIG")
+        candidates = []
+        if explicit:
+            candidates.append(explicit)
+
+        candidates.extend([
+            os.path.expanduser('~/.config/spotify-cmd/config.ini'),
+            '/var/lib/spotify-cmd/.config/spotify-cmd/config.ini',
+            '/etc/spotify-cmd/config.ini',
+        ])
+
+        for path in candidates:
+            if path and os.path.exists(path):
+                return path
+        return None

@@ -1,3 +1,9 @@
+spotify-cmd (0.1.15) unstable; urgency=medium
+
+  * Add config search paths and bind cache to config directory.
+
+ -- Maciej Ciemborowicz <maciej.ciemborowicz@gmail.com>  Mon, 22 Dec 2025 11:53:58 +0000
+
 spotify-cmd (0.1.14) unstable; urgency=medium
 
   * Fix systemd unit install path in deb package.
