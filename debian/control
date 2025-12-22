@@ -8,6 +8,5 @@ Homepage: https://github.com/ciembor/spotify-cmd
 
 Package: spotify-cmd
 Architecture: any
-Depends: ${misc:Depends}
+Depends: ${misc:Depends}, adduser
 Description: Command line Spotify client and daemon (dh-virtualenv)
-

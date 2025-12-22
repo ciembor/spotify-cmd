@@ -1,3 +1,9 @@
+spotify-cmd (0.1.13) unstable; urgency=medium
+
+  * Add systemd service for spotify-cmd-daemon.
+
+ -- Maciej Ciemborowicz <maciej.ciemborowicz@gmail.com>  Mon, 22 Dec 2025 11:25:49 +0000
+
 spotify-cmd (0.1.12) unstable; urgency=medium
 
   * Fix daemon init after daemonize to avoid client hang.

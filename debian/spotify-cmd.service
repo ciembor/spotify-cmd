@@ -1,0 +1,17 @@
+[Unit]
+Description=spotify-cmd daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=spotify-cmd
+Group=spotify-cmd
+Environment=HOME=/var/lib/spotify-cmd
+ExecStartPre=/usr/bin/install -d -o spotify-cmd -g spotify-cmd /var/lib/spotify-cmd/.config/spotify-cmd
+ExecStart=/usr/bin/spotify-cmd-daemon --foreground
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

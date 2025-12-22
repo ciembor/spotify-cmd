@@ -1,4 +1,4 @@
-# 📻 spotify-cmd v0.1.12
+# 📻 spotify-cmd v0.1.13
 
 `spotify-cmd` is a Spotify client that allows controlling the playback of **albums and playlists from a user's library** (based on names or Spotify URIs) and individual tracks (based solely on Spotify URIs). The application is intended for use with [spotifyd](https://github.com/Spotifyd/spotifyd), but it works with any Spotify-enabled device.
 
@@ -17,6 +17,13 @@ curl -fsSL https://maciej-ciemborowicz.eu/apt/spotify-cmd.gpg | sudo gpg --dearm
 echo "deb [signed-by=/usr/share/keyrings/spotify-cmd-archive-keyring.gpg] https://maciej-ciemborowicz.eu/apt ./" | sudo tee /etc/apt/sources.list.d/spotify-cmd.list
 sudo apt update
 sudo apt install spotify-cmd
+```
+
+After installing from apt, the daemon is managed by systemd. Create the config at `/var/lib/spotify-cmd/.config/spotify-cmd/config.ini`, then restart:
+
+```bash
+sudo systemctl restart spotify-cmd
+sudo systemctl status spotify-cmd --no-pager
 ```
 
 ## Configuration

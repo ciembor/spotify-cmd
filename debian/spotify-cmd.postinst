@@ -1,0 +1,22 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+  configure)
+    if ! id -u spotify-cmd >/dev/null 2>&1; then
+      adduser --system --group --home /var/lib/spotify-cmd --shell /usr/sbin/nologin spotify-cmd
+    fi
+
+    install -d -o spotify-cmd -g spotify-cmd /var/lib/spotify-cmd/.config/spotify-cmd
+
+    if command -v systemctl >/dev/null 2>&1; then
+      systemctl daemon-reload >/dev/null 2>&1 || true
+      systemctl enable spotify-cmd.service >/dev/null 2>&1 || true
+      if [ -f /var/lib/spotify-cmd/.config/spotify-cmd/config.ini ]; then
+        systemctl restart spotify-cmd.service >/dev/null 2>&1 || true
+      fi
+    fi
+  ;;
+esac
+
+exit 0
