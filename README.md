@@ -26,7 +26,16 @@ sudo systemctl restart spotify-cmd
 sudo systemctl status spotify-cmd --no-pager
 ```
 
-If the service stays inactive, ensure the token cache exists at `/var/lib/spotify-cmd/.config/spotify-cmd/cache/token-cache`. You can copy it from a user cache:
+If the service stays inactive, you need a token cache at `/var/lib/spotify-cmd/.config/spotify-cmd/cache/token-cache`. You can either generate it by running a one-time OAuth flow as the service user, or copy it from a user cache.
+
+```bash
+sudo systemctl stop spotify-cmd
+sudo -u spotify-cmd /usr/bin/spotify-cmd-daemon --foreground
+# Complete the OAuth flow in your browser (use an SSH tunnel if remote).
+sudo systemctl start spotify-cmd
+```
+
+Or copy an existing cache:
 
 ```bash
 sudo install -d -o spotify-cmd -g spotify-cmd /var/lib/spotify-cmd/.config/spotify-cmd/cache
