@@ -13,7 +13,8 @@ pip3 install spotify-cmd
 ### Debian/Ubuntu (apt)
 
 ```bash
-echo "deb [trusted=yes] https://maciej-ciemborowicz.eu/apt ./" | sudo tee /etc/apt/sources.list.d/spotify-cmd.list
+curl -fsSL https://maciej-ciemborowicz.eu/apt/spotify-cmd.gpg | sudo gpg --dearmor -o /usr/share/keyrings/spotify-cmd-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/spotify-cmd-archive-keyring.gpg] https://maciej-ciemborowicz.eu/apt ./" | sudo tee /etc/apt/sources.list.d/spotify-cmd.list
 sudo apt update
 sudo apt install spotify-cmd
 ```
