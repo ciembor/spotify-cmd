@@ -1,0 +1,12 @@
+spotify-cmd (0.1.12) unstable; urgency=medium
+
+  * Fix daemon init after daemonize to avoid client hang.
+
+ -- Maciej Ciemborowicz <maciej.ciemborowicz@gmail.com>  Mon, 22 Dec 2025 10:50:42 -0000
+
+spotify-cmd (0.1.11) unstable; urgency=medium
+
+  * Initial package.
+
+ -- Maciej Ciemborowicz <maciej.ciemborowicz@gmail.com>  Fri, 20 Dec 2024 12:00:00 +0000
+

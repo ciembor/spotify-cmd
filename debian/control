@@ -1,0 +1,13 @@
+Source: spotify-cmd
+Section: sound
+Priority: optional
+Maintainer: Maciej Ciemborowicz <maciej.ciemborowicz@gmail.com>
+Build-Depends: debhelper-compat (= 13), dh-virtualenv, python3, python3-virtualenv, python3-setuptools, python3-pip
+Standards-Version: 4.6.2
+Homepage: https://github.com/ciembor/spotify-cmd
+
+Package: spotify-cmd
+Architecture: any
+Depends: ${misc:Depends}
+Description: Command line Spotify client and daemon (dh-virtualenv)
+

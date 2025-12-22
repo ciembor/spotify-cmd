@@ -1,0 +1,3 @@
+/opt/venvs/spotify-cmd/bin/spotify-cmd /usr/bin/spotify-cmd
+/opt/venvs/spotify-cmd/bin/spotify-cmd-daemon /usr/bin/spotify-cmd-daemon
+
