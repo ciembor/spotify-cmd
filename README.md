@@ -26,6 +26,15 @@ sudo systemctl restart spotify-cmd
 sudo systemctl status spotify-cmd --no-pager
 ```
 
+If the service stays inactive, ensure the token cache exists at `/var/lib/spotify-cmd/.config/spotify-cmd/cache/token-cache`. You can copy it from a user cache:
+
+```bash
+sudo install -d -o spotify-cmd -g spotify-cmd /var/lib/spotify-cmd/.config/spotify-cmd/cache
+sudo cp ~/.config/spotify-cmd/cache/token-cache /var/lib/spotify-cmd/.config/spotify-cmd/cache/token-cache
+sudo chown spotify-cmd:spotify-cmd /var/lib/spotify-cmd/.config/spotify-cmd/cache/token-cache
+sudo systemctl restart spotify-cmd
+```
+
 ## Configuration
 
 The application configuration should be located in `~/.config/spotify-cmd/config.ini`. Below is a detailed guide on each configuration option:
