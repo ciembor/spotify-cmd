@@ -1,4 +1,4 @@
-# 📻 spotify-cmd v0.1.15
+# 📻 spotify-cmd v0.1.16
 
 `spotify-cmd` is a Spotify client that allows controlling the playback of **albums and playlists from a user's library** (based on names or Spotify URIs) and individual tracks (based solely on Spotify URIs). The application is intended for use with [spotifyd](https://github.com/Spotifyd/spotifyd), but it works with any Spotify-enabled device.
 
@@ -44,6 +44,21 @@ sudo chown spotify-cmd:spotify-cmd /var/lib/spotify-cmd/.config/spotify-cmd/cach
 sudo systemctl restart spotify-cmd
 ```
 
+If you want to run the client as a regular user (for example `pi`), add it to the `spotify-cmd` group so it can access the daemon socket:
+
+```bash
+sudo usermod -aG spotify-cmd <user>
+```
+
+### Headless spotifyd (Raspberry Pi, servers)
+
+When using spotifyd on headless hosts, run it in the foreground under systemd and disable MPRIS to avoid DBus/X11 issues:
+
+```ini
+[global]
+use_mpris = false
+```
+
 ## Configuration
 
 The application configuration should be located in `~/.config/spotify-cmd/config.ini`. Below is a detailed guide on each configuration option:
@@ -56,14 +71,14 @@ device_name = your_device_name  # optional; if omitted, uses the current active 
 redirect_uri = http://localhost:8888/callback
 
 [SPOTIFY_CMD_DAEMON]
-socket_path = /tmp/spotify-cmd-daemon.sock
+socket_path = /run/spotify-cmd/spotify-cmd.sock
 socket_buffer_size = 1024
 ```
 
 * **client_id**, **client_secret** are required. Obtain these by creating an app at the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard/applications).
 * **device_name** is optional. If set, `spotify-cmd-daemon` will force to use it even if another is active; if omitted, it uses the current active device.
 * **redirect_uri** is used for Spotify authentication. If not set, it defaults to 'http://localhost:8888/callback'.
-* **socket_path** specifies the Unix socket path for the daemon. Defaults to '/tmp/spotify-cmd-daemon.sock'.
+* **socket_path** specifies the Unix socket path for the daemon. Defaults to '/run/spotify-cmd/spotify-cmd.sock' on Linux and '/tmp/spotify-cmd-daemon.sock' on other systems.
 * **socket_buffer_size** defines the buffer size for socket communication. Defaults to 1024.
 
 ## Commands
@@ -99,7 +114,7 @@ spotify-cmd find artist "Nils Frahm"
 
 ## For Developers
 
-Developers can create interfaces for `spotify-cmd-daemon` using `/tmp/spotify-cmd-daemon.sock`. Socket handling and data format details are in the `./src/common` directory (there is no documentation).
+Developers can create interfaces for `spotify-cmd-daemon` using `/run/spotify-cmd/spotify-cmd.sock` (Linux) or `/tmp/spotify-cmd-daemon.sock` (other systems). Socket handling and data format details are in the `./src/common` directory (there is no documentation).
 
 Daemon helper:
 

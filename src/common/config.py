@@ -1,4 +1,5 @@
 import os
+import platform
 import configparser
 
 class Config:
@@ -32,7 +33,11 @@ class Config:
         self.spotify_client_secret = config.get('SPOTIFY', 'client_secret', fallback=None)
         self.device_name = config.get('SPOTIFY', 'device_name', fallback=None)
         self.spotify_redirect_uri = config.get('SPOTIFY', 'redirect_uri', fallback='http://localhost:8888/callback')
-        self.socket_path = config.get('SPOTIFY_CMD_DAEMON', 'socket_path', fallback='/tmp/spotify-cmd-daemon.sock')
+        self.socket_path = config.get(
+            'SPOTIFY_CMD_DAEMON',
+            'socket_path',
+            fallback=self._default_socket_path()
+        )
         self.socket_buffer_size = config.getint('SPOTIFY_CMD_DAEMON', 'socket_buffer_size', fallback=1024)
 
         if not self.spotify_client_id or not self.spotify_client_secret:
@@ -54,3 +59,8 @@ class Config:
             if path and os.path.exists(path):
                 return path
         return None
+
+    def _default_socket_path(self):
+        if platform.system().lower() == 'linux':
+            return '/run/spotify-cmd/spotify-cmd.sock'
+        return '/tmp/spotify-cmd-daemon.sock'
