@@ -7,6 +7,8 @@ from importlib.metadata import version, PackageNotFoundError
 from .spotify_controller import SpotifyController
 from .socket_server import SocketServer
 
+lock_file = "/tmp/spotify-cmd-daemon.lock"
+
 def signal_handler(sig, frame, server):
     server.stop_server()
     if os.path.exists(lock_file):
@@ -19,8 +21,32 @@ def get_pkg_version():
     except PackageNotFoundError:
         return "unknown"
 
-def run_server(server):
+def create_server():
+    spotify = SpotifyController()
+    return SocketServer(spotify)
+
+def install_signal_handlers(server):
+    signal.signal(signal.SIGINT, lambda s, f: signal_handler(s, f, server))
+    signal.signal(signal.SIGTERM, lambda s, f: signal_handler(s, f, server))
+
+def ensure_lock():
+    if os.path.exists(lock_file):
+        print(f"Daemon already running ({lock_file} exists).")
+        sys.exit(1)
+    with open(lock_file, 'w'):
+        pass
+
+def run_server_foreground():
+    ensure_lock()
+    server = create_server()
+    install_signal_handlers(server)
+    server.start_server()
+
+def run_server_daemon():
     with daemon.DaemonContext():
+        ensure_lock()
+        server = create_server()
+        install_signal_handlers(server)
         server.start_server()
 
 parser = argparse.ArgumentParser()
@@ -32,20 +58,7 @@ if args.version:
     print(get_pkg_version())
     sys.exit(0)
 
-spotify = SpotifyController()
-server = SocketServer(spotify)
-
-lock_file = "/tmp/spotify-cmd-daemon.lock"
-if os.path.exists(lock_file):
-    print(f"Daemon already running ({lock_file} exists).")
-    sys.exit(1)
-else:
-    with open(lock_file, 'w'): pass
-
-signal.signal(signal.SIGINT, lambda s, f: signal_handler(s, f, server))
-signal.signal(signal.SIGTERM, lambda s, f: signal_handler(s, f, server))
-
 if args.foreground:
-    server.start_server()
+    run_server_foreground()
 else:
-    run_server(server)
+    run_server_daemon()
