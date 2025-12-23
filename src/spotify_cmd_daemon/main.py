@@ -29,12 +29,34 @@ def install_signal_handlers(server):
     signal.signal(signal.SIGINT, lambda s, f: signal_handler(s, f, server))
     signal.signal(signal.SIGTERM, lambda s, f: signal_handler(s, f, server))
 
+def _pid_is_running(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
 def ensure_lock():
     if os.path.exists(lock_file):
-        print(f"Daemon already running ({lock_file} exists).")
-        sys.exit(1)
-    with open(lock_file, 'w'):
-        pass
+        try:
+            content = open(lock_file, 'r').read().strip()
+            pid = int(content) if content else None
+        except (OSError, ValueError):
+            pid = None
+
+        if pid and _pid_is_running(pid):
+            print(f"Daemon already running (pid {pid}, {lock_file} exists).")
+            sys.exit(1)
+
+        try:
+            os.remove(lock_file)
+        except OSError:
+            pass
+
+    with open(lock_file, 'w') as f:
+        f.write(str(os.getpid()))
 
 def run_server_foreground():
     ensure_lock()

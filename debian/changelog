@@ -1,3 +1,9 @@
+spotify-cmd (0.1.17) unstable; urgency=medium
+
+  * Fix stale daemon lock handling by tracking PID in lock file.
+
+ -- Maciej Ciemborowicz <maciej.ciemborowicz@gmail.com>  Tue, 23 Dec 2025 20:45:00 +0000
+
 spotify-cmd (0.1.16) unstable; urgency=medium
 
   * Switch default socket to /run/spotify-cmd and harden systemd unit.
