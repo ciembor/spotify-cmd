@@ -1,4 +1,4 @@
-# 📻 spotify-cmd v0.1.21
+# 📻 spotify-cmd v0.1.22
 
 `spotify-cmd` is a Spotify client that allows controlling the playback of **albums and playlists from a user's library** (based on names or Spotify URIs) and individual tracks (based solely on Spotify URIs). The application is intended for use with [spotifyd](https://github.com/Spotifyd/spotifyd), but it works with any Spotify-enabled device.
 
@@ -148,9 +148,9 @@ Daemon helper:
 
 ## Planned Features and Upcoming Development
 
-* ~~Displaying tracks from specific albums or playlists.~~ [Done in 0.1.21]
-* ~~MPRIS D-Bus interface support to reduce server queries.~~ [Done in 0.1.21]
-* ~~`spotify-cmd-ui`: A ncurses-based UI for track display and control, working with the same daemon.~~ [Done in 0.1.21]
+* ~~Displaying tracks from specific albums or playlists.~~ [Done in 0.1.22]
+* ~~MPRIS D-Bus interface support to reduce server queries.~~ [Done in 0.1.22]
+* ~~`spotify-cmd-ui`: A ncurses-based UI for track display and control, working with the same daemon.~~ [Done in 0.1.22]
 * ~~Search functionality.~~ [Done in 0.1.4]
 * Support for other resource types like artists.
 * Config instructions after installation / creation of default config.

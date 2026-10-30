@@ -70,7 +70,7 @@ def test_pypi_package_installs_and_console_commands_run(tmp_path):
     command_env = os.environ | {'SPOTIFY_CMD_CONFIG': str(config)}
     unavailable_daemon = run([str(client), 'pause'], env=command_env, cwd=tmp_path)
     assert unavailable_daemon.returncode == 0
-    assert 'Cannot connect to daemon:' in unavailable_daemon.stdout
+    assert 'Cannot connect to daemon.' in unavailable_daemon.stdout
 
 
 @pytest.mark.pypi
