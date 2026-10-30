@@ -6,13 +6,14 @@ repos:
     hooks:
       - id: test-coverage
         name: tests with 100% coverage
-        entry: python -m coverage run -m pytest
+        entry: python -m coverage run -m pytest -m 'not pypi'
         language: python
         additional_dependencies:
           - coverage[toml]>=7.6,<8
           - pytest>=8.3,<9
           - spotipy==2.23.0
           - python-daemon==3.0.1
+          - dbus-next==0.2.3
         pass_filenames: false
         always_run: true
       - id: coverage-threshold
@@ -24,5 +25,6 @@ repos:
           - pytest>=8.3,<9
           - spotipy==2.23.0
           - python-daemon==3.0.1
+          - dbus-next==0.2.3
         pass_filenames: false
         always_run: true

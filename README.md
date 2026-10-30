@@ -1,4 +1,4 @@
-# 📻 spotify-cmd v0.1.18
+# 📻 spotify-cmd v0.1.19
 
 `spotify-cmd` is a Spotify client that allows controlling the playback of **albums and playlists from a user's library** (based on names or Spotify URIs) and individual tracks (based solely on Spotify URIs). The application is intended for use with [spotifyd](https://github.com/Spotifyd/spotifyd), but it works with any Spotify-enabled device.
 
@@ -130,6 +130,12 @@ Every commit runs the test suite with coverage for `src`. A commit passes only w
 ```bash
 python -m coverage run -m pytest
 python -m coverage report
+```
+
+The published-package smoke test uses PyPI and a new virtual environment. Run it explicitly when validating a release:
+
+```bash
+python -m pytest -m pypi
 ```
 
 Daemon helper:

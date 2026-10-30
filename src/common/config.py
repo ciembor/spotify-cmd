@@ -38,6 +38,8 @@ class Config:
             fallback=self._default_socket_path()
         )
         self.socket_buffer_size = config.getint('SPOTIFY_CMD_DAEMON', 'socket_buffer_size', fallback=1024)
+        self.mpris_enabled = config.getboolean('SPOTIFY_CMD_DAEMON', 'mpris_enabled', fallback=False)
+        self.mpris_bus_name = config.get('SPOTIFY_CMD_DAEMON', 'mpris_bus_name', fallback='org.mpris.MediaPlayer2.spotify_cmd')
 
         if not self.spotify_client_id or not self.spotify_client_secret:
             raise Exception("Spotify client_id and client_secret must be set in config.ini")

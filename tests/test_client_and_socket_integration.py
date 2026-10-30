@@ -5,8 +5,8 @@ import threading
 
 import pytest
 
-from socket_data_handler import SocketDataHandler
-from socket_message import SocketMessage
+from common.socket_data_handler import SocketDataHandler
+from common.socket_message import SocketMessage
 from spotify_cmd_client.client import Client
 from spotify_cmd_client.data_presenter import DataPresenter
 from spotify_cmd_client import main as client_main

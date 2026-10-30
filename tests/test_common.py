@@ -4,9 +4,9 @@ import socket
 
 import pytest
 
-from config import Config
-from socket_data_handler import SocketDataHandler
-from socket_message import SocketMessage
+from common.config import Config
+from common.socket_data_handler import SocketDataHandler
+from common.socket_message import SocketMessage
 
 
 @pytest.fixture(autouse=True)

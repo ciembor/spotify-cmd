@@ -1,4 +1,4 @@
-from config import Config
+from .config import Config
 
 class SocketDataHandler:
     config = Config.get_instance()

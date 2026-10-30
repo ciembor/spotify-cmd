@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).parents[1]
-sys.path[:0] = [str(ROOT / 'src'), str(ROOT / 'src' / 'common')]
+sys.path.insert(0, str(ROOT / 'src'))
 
 CONFIG_PATH = Path(tempfile.mkdtemp(prefix='spotify-cmd-tests-')) / 'config.ini'
 CONFIG_PATH.write_text(

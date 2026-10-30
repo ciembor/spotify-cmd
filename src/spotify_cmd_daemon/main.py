@@ -6,6 +6,7 @@ import daemon
 from importlib.metadata import version, PackageNotFoundError
 from .spotify_controller import SpotifyController
 from .socket_server import SocketServer
+from .mpris import MprisService
 
 lock_file = "/tmp/spotify-cmd-daemon.lock"
 
@@ -61,6 +62,9 @@ def ensure_lock():
 def run_server_foreground():
     ensure_lock()
     server = create_server()
+    controller = getattr(server, 'spotify_controller', None)
+    if controller and controller.config.mpris_enabled:
+        MprisService(controller, controller.config.mpris_bus_name).start()
     install_signal_handlers(server)
     server.start_server()
 

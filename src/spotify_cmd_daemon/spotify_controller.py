@@ -1,21 +1,18 @@
 import os
-import sys
 import time
-current_dir = os.path.dirname(os.path.abspath(__file__))
-base_path = os.path.join(current_dir, "..", 'common')
-sys.path.insert(0, base_path)
 
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth, CacheFileHandler
 from spotipy.exceptions import SpotifyException
 from . import operations
 from .operations.helpers import get_resource_uri
-from config import Config
-from socket_message import SocketMessage
+from common.config import Config
+from common.socket_message import SocketMessage
 
 class SpotifyController:
     def __init__(self):
         config = Config.get_instance()
+        self.config = config
         scope = 'user-library-read,user-read-playback-state,user-modify-playback-state,playlist-read-private'
 
         # Use the config directory for a consistent cache location across users/services.
@@ -139,3 +136,15 @@ class SpotifyController:
     def get_response(self):
         print(self.response)
         return SocketMessage("response", self.response)
+
+    def get_playback_state(self):
+        """Return the Spotify state needed by MPRIS without changing playback."""
+        playback = self.spotipy_client.current_playback() or {}
+        item = playback.get('item') or {}
+        return {
+            'is_playing': playback.get('is_playing', False),
+            'progress_ms': playback.get('progress_ms', 0) or 0,
+            'shuffle_state': playback.get('shuffle_state', False),
+            'volume_percent': (playback.get('device') or {}).get('volume_percent', 0) or 0,
+            'item': item,
+        }

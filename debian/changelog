@@ -1,3 +1,10 @@
+spotify-cmd (0.1.19) unstable; urgency=medium
+
+  * Add optional MPRIS D-Bus media player interface.
+  * Use standard src-layout package imports and add published-package tests.
+
+ -- Maciej Ciemborowicz <maciej.ciemborowicz@gmail.com>  Fri, 30 Oct 2026 12:30:00 +0000
+
 spotify-cmd (0.1.18) unstable; urgency=medium
 
   * Add comprehensive tests and enforce 100% test coverage before commits.

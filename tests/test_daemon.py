@@ -2,7 +2,7 @@ import sys
 
 import pytest
 
-from socket_message import SocketMessage
+from common.socket_message import SocketMessage
 from spotify_cmd_daemon import main as daemon_main
 from spotify_cmd_daemon.spotify_controller import SpotifyController
 

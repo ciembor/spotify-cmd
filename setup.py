@@ -6,13 +6,15 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="spotify-cmd",
-    version="0.1.18",
-    packages=find_packages(),
+    version="0.1.19",
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
     install_requires=[
         'argparse==1.4.0',
         'configparser==5.0.2',
         'spotipy==2.23.0',
-        'python-daemon==3.0.1'
+        'python-daemon==3.0.1',
+        'dbus-next==0.2.3'
     ],
     extras_require={
         'test': [
@@ -27,8 +29,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'spotify-cmd = src.spotify_cmd_client.main:main',
-            'spotify-cmd-daemon = src.spotify_cmd_daemon.main:main'
+            'spotify-cmd = spotify_cmd_client.main:main',
+            'spotify-cmd-daemon = spotify_cmd_daemon.main:main'
         ]
     },
     author="Maciej Ciemborowicz",

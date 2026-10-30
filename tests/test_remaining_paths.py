@@ -5,7 +5,7 @@ import sys
 import pytest
 from spotipy.exceptions import SpotifyException
 
-from config import Config
+from common.config import Config
 from spotify_cmd_daemon import main as daemon_main
 from spotify_cmd_daemon import operations
 from spotify_cmd_daemon.operations.helpers.get_album import get_album

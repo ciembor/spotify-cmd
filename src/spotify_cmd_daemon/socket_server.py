@@ -1,14 +1,10 @@
 import os
 import sys
-current_dir = os.path.dirname(os.path.abspath(__file__))
-base_path = os.path.join(current_dir, "..", 'common')
-sys.path.insert(0, base_path)
-
 import socket
 import json
-from config import Config
-from socket_message import SocketMessage
-from socket_data_handler import SocketDataHandler
+from common.config import Config
+from common.socket_message import SocketMessage
+from common.socket_data_handler import SocketDataHandler
 
 class SocketServer:
     config = Config.get_instance()
