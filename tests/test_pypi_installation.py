@@ -10,13 +10,14 @@ import pytest
 PACKAGE_NAME = 'spotify-cmd'
 
 
-def run(command, *, env=None):
+def run(command, *, env=None, cwd=None):
     return subprocess.run(
         command,
         check=False,
         capture_output=True,
         text=True,
         env=env,
+        cwd=cwd,
     )
 
 
@@ -36,7 +37,10 @@ def test_pypi_package_installs_and_console_commands_run(tmp_path):
     ])
     assert installation.returncode == 0, installation.stderr
 
-    installed_version = run([str(python), '-c', f"from importlib.metadata import version; print(version('{PACKAGE_NAME}'))"])
+    installed_version = run(
+        [str(python), '-c', f"from importlib.metadata import version; print(version('{PACKAGE_NAME}'))"],
+        cwd=tmp_path,
+    )
     assert installed_version.returncode == 0
     assert installed_version.stdout.strip() == released_version
 
@@ -46,11 +50,14 @@ def test_pypi_package_installs_and_console_commands_run(tmp_path):
     assert daemon.is_file()
 
     for executable in (client, daemon):
-        version_result = run([str(executable), '--version'] if executable == daemon else [str(executable), 'version'])
+        version_result = run(
+            [str(executable), '--version'] if executable == daemon else [str(executable), 'version'],
+            cwd=tmp_path,
+        )
         assert version_result.returncode == 0, version_result.stderr
         assert version_result.stdout.strip() == released_version
 
-        help_result = run([str(executable), '--help'])
+        help_result = run([str(executable), '--help'], cwd=tmp_path)
         assert help_result.returncode == 0, help_result.stderr
         assert 'usage:' in help_result.stdout.lower()
 
@@ -61,7 +68,7 @@ def test_pypi_package_installs_and_console_commands_run(tmp_path):
         f'[SPOTIFY_CMD_DAEMON]\nsocket_path = {missing_socket}\n'
     )
     command_env = os.environ | {'SPOTIFY_CMD_CONFIG': str(config)}
-    unavailable_daemon = run([str(client), 'pause'], env=command_env)
+    unavailable_daemon = run([str(client), 'pause'], env=command_env, cwd=tmp_path)
     assert unavailable_daemon.returncode == 0
     assert 'Cannot connect to daemon:' in unavailable_daemon.stdout
 
