@@ -2,9 +2,13 @@ from .get_library_albums import get_library_albums
 from .get_library_playlists import get_library_playlists
 from .next_track import next_track
 from .pause_playback import pause_playback
+from .stop_playback import stop_playback
 from .previous_track import previous_track
 from .resume_playback import resume_playback
 from .set_shuffle import set_shuffle
 from .set_volume import set_volume
 from .start_playback import start_playback
 from .search import search
+from .get_queue import get_queue
+from .get_context_tracks import get_context_tracks
+from .play_queue_track import play_queue_track

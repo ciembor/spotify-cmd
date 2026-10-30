@@ -46,6 +46,23 @@ def test_controller_routes_commands_and_returns_errors(monkeypatch):
     assert controller.get_response().payload == {'error': 'bad command'}
 
 
+def test_controller_routes_context_queue_and_library_getters(monkeypatch):
+    controller, _ = make_controller(monkeypatch)
+    monkeypatch.setattr(controller, 'ensure_device_active', lambda **kwargs: None)
+    calls = []
+    monkeypatch.setattr('spotify_cmd_daemon.spotify_controller.operations.start_playback', lambda *args: calls.append(('context', args)) or {'notification': 'ok'})
+    monkeypatch.setattr('spotify_cmd_daemon.spotify_controller.operations.play_queue_track', lambda *args: calls.append(('queue', args)) or {'notification': 'ok'})
+    monkeypatch.setattr('spotify_cmd_daemon.spotify_controller.operations.get_queue', lambda *_: {'tracks': []})
+    monkeypatch.setattr('spotify_cmd_daemon.spotify_controller.operations.get_context_tracks', lambda *_: {'tracks': []})
+    monkeypatch.setattr('spotify_cmd_daemon.spotify_controller.operations.stop_playback', lambda *_: {'notification': 'stopped'})
+    controller.execute_command(SocketMessage('request', {'command': 'stop'}))
+    controller.execute_command(SocketMessage('request', {'command': 'play', 'type': 'context', 'value': {'uri': 'spotify:album:a', 'offset': 2}}))
+    controller.execute_command(SocketMessage('request', {'command': 'play', 'type': 'queue_track', 'value': 'spotify:track:t'}))
+    controller.execute_command(SocketMessage('request', {'command': 'get', 'type': 'queue'}))
+    controller.execute_command(SocketMessage('request', {'command': 'get', 'type': 'tracks', 'value': 'spotify:album:a'}))
+    assert [name for name, _ in calls] == ['context', 'queue']
+
+
 def test_daemon_main_modes_and_lock_lifecycle(monkeypatch, tmp_path, capsys):
     lock = tmp_path / 'daemon.lock'
     monkeypatch.setattr(daemon_main, 'lock_file', str(lock))

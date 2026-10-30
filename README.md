@@ -1,4 +1,4 @@
-# 📻 spotify-cmd v0.1.19
+# 📻 spotify-cmd v0.1.20
 
 `spotify-cmd` is a Spotify client that allows controlling the playback of **albums and playlists from a user's library** (based on names or Spotify URIs) and individual tracks (based solely on Spotify URIs). The application is intended for use with [spotifyd](https://github.com/Spotifyd/spotifyd), but it works with any Spotify-enabled device.
 
@@ -112,6 +112,10 @@ spotify-cmd play uri spotify:album:5zKTfU3vyuZfLgtYRfJyza
 spotify-cmd find artist "Nils Frahm"
 ```
 
+## Terminal UI
+
+Run `spotify-cmd-ui` to browse albums, playlists, and the active Spotify queue. Use `1`, `2`, and `3` to change views, arrow keys to select an item, and Enter to play it. Space toggles play/pause, `s` stops playback, and `h` toggles shuffle. The UI receives state events from the daemon, so changes made through any client appear automatically.
+
 ## For Developers
 
 Developers can create interfaces for `spotify-cmd-daemon` using `/run/spotify-cmd/spotify-cmd.sock` (Linux) or `/tmp/spotify-cmd-daemon.sock` (other systems). Socket handling and data format details are in the `./src/common` directory (there is no documentation).
@@ -144,9 +148,9 @@ Daemon helper:
 
 ## Planned Features and Upcoming Development
 
-* Displaying tracks from specific albums or playlists.
-* MPRIS D-Bus interface support to reduce server queries.
-* `spotify-cmd-ui`: A ncurses-based UI for track display and control, working with the same daemon.
+* ~~Displaying tracks from specific albums or playlists.~~ [Done in 0.1.20]
+* ~~MPRIS D-Bus interface support to reduce server queries.~~ [Done in 0.1.20]
+* ~~`spotify-cmd-ui`: A ncurses-based UI for track display and control, working with the same daemon.~~ [Done in 0.1.20]
 * ~~Search functionality.~~ [Done in 0.1.4]
 * Support for other resource types like artists.
 * Config instructions after installation / creation of default config.

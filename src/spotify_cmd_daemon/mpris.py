@@ -33,6 +33,10 @@ class MprisPlayer(ServiceInterface):
         self._command('pause')
 
     @method()
+    def Stop(self):
+        self._command('stop')
+
+    @method()
     def PlayPause(self):
         self._command('pause' if self._state()['is_playing'] else 'play')
 

@@ -37,10 +37,10 @@ def test_mpris_player_maps_state_and_controls():
     assert metadata['xesam:title'].value == 'Track'
     assert metadata['xesam:artist'].value == ['Artist']
     assert metadata['mpris:length'].value == 180_000_000
-    player.Play(); player.Pause(); player.Next(); player.Previous()
+    player.Play(); player.Pause(); player.Stop(); player.Next(); player.Previous()
     controller.state['is_playing'] = False
     player.PlayPause()
-    assert controller.commands == ['play', 'pause', 'next', 'previous', 'play']
+    assert controller.commands == ['play', 'pause', 'stop', 'next', 'previous', 'play']
 
 
 def test_mpris_empty_state_is_stopped():

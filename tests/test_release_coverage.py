@@ -29,8 +29,8 @@ def test_client_version_fallback_and_connection_failure(monkeypatch):
     monkeypatch.setattr(client_main, 'version', lambda _: (_ for _ in ()).throw(PackageNotFoundError()))
     assert client_main.get_pkg_version() == 'unknown'
     class Client:
-        def connect(self): return False
-        def close(self): raise AssertionError('must not close unconnected client')
+        def execute(self, _): return {'error': 'offline'}
+        def render(self, response, output_format): assert response == {'error': 'offline'} and output_format == 'text'
     monkeypatch.setattr(client_main, 'Client', Client)
     monkeypatch.setattr('sys.argv', ['spotify-cmd', 'pause'])
     client_main.main()

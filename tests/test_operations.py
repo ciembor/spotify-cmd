@@ -1,6 +1,7 @@
 import importlib
 
 import pytest
+from spotipy.exceptions import SpotifyException
 
 from spotify_cmd_daemon import operations
 from spotify_cmd_daemon.operations.helpers.check_resource_existence import check_resource_existence
@@ -26,6 +27,7 @@ class Spotify:
 
     def start_playback(self, **kwargs): return self._call('start_playback', **kwargs)
     def pause_playback(self, **kwargs): return self._call('pause_playback', **kwargs)
+    def seek_track(self, position_ms, **kwargs): return self._call('seek_track', position_ms=position_ms, **kwargs)
     def next_track(self, **kwargs): return self._call('next_track', **kwargs)
     def previous_track(self, **kwargs): return self._call('previous_track', **kwargs)
     def shuffle(self, **kwargs): return self._call('shuffle', **kwargs)
@@ -39,6 +41,9 @@ class Spotify:
 
     def current_user_playlists(self, limit, offset):
         return self.playlist_pages.pop(0)
+
+    def current_playback(self):
+        return {'item': {'id': 'playing'}}
 
 
 def album(identifier='a', name='Album'):
@@ -84,7 +89,9 @@ def test_resource_uri_uses_library_and_rejects_unknown(monkeypatch):
 
 def test_playback_and_player_setting_operations():
     spotify = Spotify()
-    assert operations.pause_playback(spotify, 'device')['notification'] == 'Playback stopped.'
+    assert operations.pause_playback(spotify, 'device')['notification'] == 'Playback paused.'
+    assert operations.stop_playback(spotify, 'device')['notification'] == 'Playback stopped.'
+    assert spotify.calls[-1] == ('seek_track', {'position_ms': 0, 'device_id': 'device'})
     assert operations.next_track(spotify, 'device')['notification'] == 'Skipped to the next track.'
     assert operations.previous_track(spotify, 'device')['notification'] == 'Skipped to the previous track.'
     assert operations.resume_playback(spotify, 'device')['notification'] == 'Playback resumed.'
@@ -96,6 +103,45 @@ def test_playback_and_player_setting_operations():
         operations.set_volume(spotify, 'device', 101)
 
 
+def test_pause_retries_without_a_device_id_when_spotify_rejects_the_device():
+    class Spotify:
+        def __init__(self): self.calls = []
+
+        def pause_playback(self, **kwargs):
+            self.calls.append(kwargs)
+            if kwargs:
+                raise SpotifyException(403, -1, 'Restriction violated')
+
+    spotify = Spotify()
+
+    assert operations.pause_playback(spotify, 'device')['notification'] == 'Playback paused.'
+    assert spotify.calls == [{'device_id': 'device'}, {}]
+
+
+def test_pause_is_idempotent_when_playback_is_already_paused():
+    class Spotify:
+        def current_playback(self): return {'is_playing': False}
+        def pause_playback(self, **_): raise AssertionError('must not call Spotify pause')
+
+    assert operations.pause_playback(Spotify(), 'device') == {'notification': 'Playback already paused.'}
+
+
+def test_stop_retries_seek_without_a_device_id_when_spotify_rejects_the_device():
+    class Spotify:
+        def current_playback(self): return {'is_playing': False}
+        def pause_playback(self, **_): pass
+        def seek_track(self, _position, **kwargs):
+            self.calls.append(kwargs)
+            if kwargs:
+                raise SpotifyException(403, -1, 'Restriction violated')
+
+        def __init__(self): self.calls = []
+
+    spotify = Spotify()
+    assert operations.stop_playback(spotify, 'device')['notification'] == 'Playback stopped.'
+    assert spotify.calls == [{'device_id': 'device'}, {}]
+
+
 def test_start_playback_validates_existence_and_selects_api(monkeypatch):
     spotify = Spotify()
     module = importlib.import_module('spotify_cmd_daemon.operations.start_playback')
@@ -103,10 +149,63 @@ def test_start_playback_validates_existence_and_selects_api(monkeypatch):
     assert operations.start_playback(spotify, 'd', 'spotify:track:t')['notification'].endswith('started.')
     assert spotify.calls[-1] == ('start_playback', {'uris': ['spotify:track:t'], 'device_id': 'd'})
     assert operations.start_playback(spotify, 'd', 'spotify:album:a', 'Name')['notification'] == 'Playback of album Name started.'
+    operations.start_playback(spotify, 'd', 'spotify:playlist:p', offset=2)
+    assert spotify.calls[-1] == ('start_playback', {
+        'context_uri': 'spotify:playlist:p', 'device_id': 'd', 'offset': {'position': 2},
+    })
     monkeypatch.setattr(module, 'check_resource_existence', lambda *_: False)
     assert 'not found' in operations.start_playback(spotify, 'd', 'spotify:album:a')['error']
     with pytest.raises(Exception, match='Invalid'):
         operations.start_playback(spotify, 'd', None)
+
+
+def test_context_tracks_loads_album_and_playlist_pages():
+    spotify = Spotify()
+    track = {'id': 'track', 'name': 'Track', 'artists': [{'name': 'Artist'}]}
+    spotify.album_tracks = lambda *_args, **_kwargs: {'items': [track], 'next': None}
+    spotify.playlist_items = lambda *_args, **_kwargs: {'items': [{'track': track}, {'track': None}], 'next': None}
+
+    assert operations.get_context_tracks(spotify, 'spotify:album:album-id')['tracks'][0]['name'] == 'Track'
+    assert operations.get_context_tracks(spotify, 'spotify:playlist:playlist-id')['playing_id'] == 'playing'
+
+
+def test_context_queue_and_queue_track_without_context_cover_real_playback_shapes():
+    spotify = Spotify()
+    track = {'id': 'track', 'name': 'Track', 'artists': [{'name': 'Artist'}]}
+    spotify.queue = lambda: {'currently_playing': track, 'queue': [track, {'id': 'next', 'name': 'Next', 'artists': []}]}
+    assert [item['spotify_id'] for item in operations.get_queue(spotify)['tracks']] == ['track', 'next']
+    spotify.current_playback = lambda: {}
+    operations.play_queue_track(spotify, 'device', 'spotify:track:next')
+    assert spotify.calls[-1] == ('start_playback', {'uris': ['spotify:track:next'], 'device_id': 'device'})
+    with pytest.raises(ValueError, match='Unsupported'):
+        operations.get_context_tracks(spotify, 'spotify:artist:any')
+
+
+def test_pause_and_stop_propagate_non_device_spotify_failures():
+    class FailingSpotify:
+        def current_playback(self): return {'is_playing': True}
+        def pause_playback(self, **_): raise SpotifyException(401, -1, 'expired')
+        def seek_track(self, *_args, **_kwargs): raise SpotifyException(401, -1, 'expired')
+
+    with pytest.raises(SpotifyException):
+        operations.pause_playback(FailingSpotify(), 'device')
+    class SeekFailingSpotify:
+        def current_playback(self): return {'is_playing': False}
+        def seek_track(self, *_args, **_kwargs): raise SpotifyException(401, -1, 'expired')
+    with pytest.raises(SpotifyException):
+        operations.stop_playback(SeekFailingSpotify(), 'device')
+
+
+def test_play_queue_track_uses_current_context_when_available():
+    spotify = Spotify()
+    spotify.current_playback = lambda: {'context': {'uri': 'spotify:album:album-id'}}
+
+    assert operations.play_queue_track(spotify, 'device', 'spotify:track:track-id')['notification'] == 'Playback started.'
+    assert spotify.calls[-1] == ('start_playback', {
+        'context_uri': 'spotify:album:album-id',
+        'offset': {'uri': 'spotify:track:track-id'},
+        'device_id': 'device',
+    })
 
 
 def test_validators_and_existence_errors(monkeypatch):

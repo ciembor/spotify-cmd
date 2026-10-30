@@ -1,7 +1,7 @@
 from .validators.validate_resource_uri import validate_resource_uri
 from .helpers.check_resource_existence import check_resource_existence
 
-def start_playback(spotipy_client, device_id, resource_uri, resource_name=None):
+def start_playback(spotipy_client, device_id, resource_uri, resource_name=None, offset=None):
     response = None
 
     if validate_resource_uri(resource_uri):
@@ -13,7 +13,10 @@ def start_playback(spotipy_client, device_id, resource_uri, resource_name=None):
             if (resource_type == 'track'):
                 response = spotipy_client.start_playback(uris=[resource_uri], device_id=device_id)
             else:
-                response = spotipy_client.start_playback(context_uri=resource_uri, device_id=device_id)
+                arguments = {'context_uri': resource_uri, 'device_id': device_id}
+                if offset is not None:
+                    arguments['offset'] = {'position': offset}
+                response = spotipy_client.start_playback(**arguments)
     else:
         raise Exception("Invalid resource uri.")
 

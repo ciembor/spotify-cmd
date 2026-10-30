@@ -7,6 +7,7 @@ import pytest
 
 from common.socket_data_handler import SocketDataHandler
 from common.socket_message import SocketMessage
+from common.daemon_client import DaemonClient
 from spotify_cmd_client.client import Client
 from spotify_cmd_client.data_presenter import DataPresenter
 from spotify_cmd_client import main as client_main
@@ -24,44 +25,77 @@ class FakeSocket:
             raise self.error
         self.connected_to = address
 
+    def fileno(self):
+        return 1
+
     def close(self):
         self.closed = True
 
 
-def test_client_connect_send_and_rendering(monkeypatch, capsys):
-    client = Client()
-    sock = FakeSocket()
-    client.sock = sock
-    assert client.connect()
-    assert sock.connected_to == client.server_address
+def test_cli_client_delegates_to_shared_transport_and_renders(capsys):
+    class Daemon:
+        def request(self, payload):
+            assert payload == {'command': 'pause'}
+            return {'notification': 'done'}
 
-    sent = []
-    monkeypatch.setattr(SocketDataHandler, 'send_data', lambda connection, data: sent.append(json.loads(data)))
-    client.send_command({'command': 'pause'})
-    assert sent[0]['payload'] == {'command': 'pause'}
-
-    response = SocketMessage('response', {'notification': 'done'}).to_json()
-    monkeypatch.setattr(SocketDataHandler, 'receive_data', lambda connection: response)
-    client.handle_response('text')
+    client = Client(Daemon())
+    assert client.execute({'command': 'pause'}) == {'notification': 'done'}
+    client.render({'notification': 'done'}, 'text')
     assert capsys.readouterr().out == 'done\n'
-    client.handle_response('json')
+    client.render({'notification': 'done'}, 'json')
     assert json.loads(capsys.readouterr().out) == {'notification': 'done'}
-    client.handle_response('verbose')
+    client.render({'notification': 'done'}, 'verbose')
     assert json.loads(capsys.readouterr().out)['message_type'] == 'response'
-    client.close()
-    assert sock.closed
 
 
-def test_client_reports_socket_errors(monkeypatch, capsys):
-    client = Client()
+def test_shared_transport_reports_socket_errors(monkeypatch):
+    client = DaemonClient()
     client.sock = FakeSocket(OSError('offline'))
-    assert not client.connect()
-    monkeypatch.setattr(SocketDataHandler, 'send_data', lambda *_: (_ for _ in ()).throw(OSError('write failed')))
-    client.send_command({})
-    monkeypatch.setattr(SocketDataHandler, 'receive_data', lambda *_: (_ for _ in ()).throw(OSError('read failed')))
-    client.handle_response('text')
-    output = capsys.readouterr().out
-    assert 'Cannot connect' in output and 'Error sending' in output and 'Error receiving' in output
+    assert client.request({'command': 'pause'}) == {'error': 'Cannot connect to daemon.'}
+
+
+def test_subscription_recovers_when_daemon_socket_appears():
+    address = f'/tmp/spotify-cmd-sub-{os.getpid()}.sock'
+    client = DaemonClient()
+    client.server_address = address
+    events = []
+    disconnected = threading.Event()
+    received = threading.Event()
+    stop = threading.Event()
+
+    def on_event(event):
+        events.append(event)
+        if event.get('event') == 'connection_error':
+            disconnected.set()
+        if event.get('event') == 'state_changed':
+            received.set()
+
+    thread = threading.Thread(target=client.subscribe, args=(on_event, stop))
+    thread.start()
+    server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        assert disconnected.wait(2)
+        server.bind(address)
+        server.listen(1)
+        server.settimeout(3)
+        connection, _ = server.accept()
+        with connection:
+            request = SocketMessage.from_json(SocketDataHandler.receive_data(connection))
+            assert request.payload == {'command': 'subscribe'}
+            SocketDataHandler.send_data(connection, SocketMessage('event', {
+                'event': 'state_changed', 'state': {'item': {'id': 'track'}},
+            }).to_json())
+            assert received.wait(2)
+        assert [event['event'] for event in events[:3]] == [
+            'connection_error', 'connection_restored', 'state_changed',
+        ]
+    finally:
+        stop.set()
+        server.close()
+        thread.join(timeout=2)
+        if os.path.exists(address):
+            os.unlink(address)
+    assert not thread.is_alive()
 
 
 def test_data_presenter_formats_collections_and_errors(capsys):
@@ -75,10 +109,8 @@ def test_data_presenter_formats_collections_and_errors(capsys):
 def test_cli_builds_payloads_preserving_zero_and_version(monkeypatch, capsys):
     calls = []
     class FakeClient:
-        def connect(self): return True
-        def send_command(self, payload): calls.append(payload)
-        def handle_response(self, output_format): calls.append(output_format)
-        def close(self): calls.append('closed')
+        def execute(self, payload): calls.append(payload); return {'notification': 'ok'}
+        def render(self, response, output_format): calls.append((response, output_format))
     monkeypatch.setattr(client_main, 'Client', FakeClient)
     monkeypatch.setattr(client_main, 'get_pkg_version', lambda: '1.2.3')
     monkeypatch.setattr('sys.argv', ['spotify-cmd', 'set', 'volume', '0'])
@@ -108,7 +140,14 @@ def test_socket_server_end_to_end_with_real_unix_socket(tmp_path):
 
     client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
-        client.connect(server.server_address)
+        for _ in range(50):
+            try:
+                client.connect(server.server_address)
+                break
+            except ConnectionRefusedError:
+                threading.Event().wait(0.01)
+        else:
+            raise AssertionError('Server did not begin accepting connections')
         SocketDataHandler.send_data(client, SocketMessage('request', {'command': 'pause'}).to_json())
         response = SocketMessage.from_json(SocketDataHandler.receive_data(client))
         assert response.payload == {'notification': 'handled'}
@@ -118,3 +157,115 @@ def test_socket_server_end_to_end_with_real_unix_socket(tmp_path):
         server.stop_server()
         thread.join(timeout=1)
     assert not thread.is_alive()
+
+
+def test_socket_server_serializes_event_writes_to_each_subscriber():
+    class Controller:
+        def get_playback_state(self):
+            return {'item': {'id': 'track'}}
+
+    class Connection:
+        def __init__(self):
+            self.lock = threading.Lock()
+            self.active_writes = 0
+            self.max_active_writes = 0
+
+        def sendall(self, _):
+            with self.lock:
+                self.active_writes += 1
+                self.max_active_writes = max(self.max_active_writes, self.active_writes)
+            threading.Event().wait(0.01)
+            with self.lock:
+                self.active_writes -= 1
+
+    server = SocketServer(Controller())
+    connection = Connection()
+    server.subscribers.add(connection)
+    first = threading.Thread(target=server.publish_state, kwargs={'force': True})
+    second = threading.Thread(target=server.publish_state, kwargs={'force': True})
+    first.start()
+    second.start()
+    first.join()
+    second.join()
+
+    assert connection.max_active_writes == 1
+
+
+def test_socket_server_does_not_repeat_an_unchanged_event():
+    class Controller:
+        def get_playback_state(self):
+            return {'is_playing': True, 'item': {'id': 'track'}}
+
+    class Connection:
+        def __init__(self):
+            self.writes = 0
+
+        def sendall(self, _):
+            self.writes += 1
+
+    server = SocketServer(Controller())
+    connection = Connection()
+    server.subscribers.add(connection)
+
+    server.publish_state()
+    first_event_writes = connection.writes
+    server.publish_state()
+
+    assert first_event_writes > 0
+    assert connection.writes == first_event_writes
+
+
+def test_socket_server_does_not_publish_for_playback_progress_only():
+    state = {
+        'is_playing': True,
+        'shuffle_state': False,
+        'volume_percent': 20,
+        'item': {'id': 'track'},
+        'progress_ms': 1_000,
+    }
+    progressed_state = {**state, 'progress_ms': 2_000}
+    next_track_state = {**state, 'item': {'id': 'next-track'}}
+
+    assert SocketServer.event_state(state) == SocketServer.event_state(progressed_state)
+    assert SocketServer.event_state(state) != SocketServer.event_state(next_track_state)
+
+
+def test_socket_server_subscription_cleanup_and_failed_event_delivery(monkeypatch):
+    class Controller:
+        def get_playback_state(self): return {'item': {'id': 'track'}}
+    class Connection:
+        def __init__(self): self.closed = False
+        def close(self): self.closed = True
+    server = SocketServer(Controller())
+    broken = Connection()
+    server.subscribers.add(broken)
+    monkeypatch.setattr('spotify_cmd_daemon.socket_server.SocketDataHandler.send_data', lambda *_: (_ for _ in ()).throw(OSError('gone')))
+    server.publish_state(force=True)
+    assert broken not in server.subscribers
+    connection = Connection()
+    message = SocketMessage('request', {'command': 'subscribe'}).to_json()
+    monkeypatch.setattr('spotify_cmd_daemon.socket_server.SocketDataHandler.receive_data', lambda _: message)
+    monkeypatch.setattr(server, 'publish_state', lambda force=False: force)
+    server.handle_connection(connection)
+    assert connection in server.subscribers and not connection.closed
+    server.stop_server()
+    assert connection.closed and not server.subscribers
+
+
+def test_socket_server_poll_publishes_changes_and_survives_state_errors(monkeypatch):
+    class Controller:
+        def __init__(self): self.calls = 0
+        def get_playback_state(self):
+            self.calls += 1
+            if self.calls == 1: raise RuntimeError('temporary')
+            return {'item': {'id': 'track'}}
+    server = SocketServer(Controller())
+    server.sock = object()
+    published = []
+    monkeypatch.setattr(server, 'publish_state', lambda state: published.append(state))
+    def sleep(_):
+        if server.spotify_controller.calls > 1:
+            server.sock = None
+    monkeypatch.setattr('spotify_cmd_daemon.socket_server.time.sleep', sleep)
+    server.poll_state()
+    assert published == [{'item': {'id': 'track'}}]  # first poll failed but loop stayed alive

@@ -81,6 +81,8 @@ class SpotifyController:
                 self.handle_play(command_data)
             elif command == 'pause':
                 self.response = operations.pause_playback(self.spotipy_client, self.device_id)
+            elif command == 'stop':
+                self.response = operations.stop_playback(self.spotipy_client, self.device_id)
             elif command == 'next':
                 self.response = operations.next_track(self.spotipy_client, self.device_id)
             elif command == 'previous':
@@ -109,12 +111,21 @@ class SpotifyController:
         type = command_data.get('type')
 
         if type:
-            resource_uri = get_resource_uri(self.spotipy_client, type, command_data.get('value'))
+            value = command_data.get('value')
+            if type == 'context':
+                resource_uri = value['uri']
+                offset = value['offset']
+            elif type == 'queue_track':
+                self.response = operations.play_queue_track(self.spotipy_client, self.device_id, value)
+                return
+            else:
+                resource_uri = get_resource_uri(self.spotipy_client, type, value)
+                offset = None
             name = None
-            if not (type == 'uri'):
-                name = command_data.get('value')
+            if type not in ('uri', 'context'):
+                name = value
 
-            self.response = operations.start_playback(self.spotipy_client, self.device_id, resource_uri, name)
+            self.response = operations.start_playback(self.spotipy_client, self.device_id, resource_uri, name, offset)
         else:
             self.response = operations.resume_playback(self.spotipy_client, self.device_id)
 
@@ -132,6 +143,10 @@ class SpotifyController:
             self.response = operations.get_library_albums(self.spotipy_client)
         elif type == 'playlists':
             self.response = operations.get_library_playlists(self.spotipy_client)
+        elif type == 'queue':
+            self.response = operations.get_queue(self.spotipy_client)
+        elif type == 'tracks':
+            self.response = operations.get_context_tracks(self.spotipy_client, command_data.get('value'))
 
     def get_response(self):
         print(self.response)

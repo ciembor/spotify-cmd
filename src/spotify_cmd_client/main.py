@@ -19,6 +19,7 @@ def main():
     # Basic commands
     play_parser = subparsers.add_parser('play', help='start playback')
     pause_parser = subparsers.add_parser('pause', help='pause playback')
+    stop_parser = subparsers.add_parser('stop', help='stop playback')
     next_parser = subparsers.add_parser('next', help='play next track')
     prev_parser = subparsers.add_parser('previous', help='play previous track')
 
@@ -40,6 +41,7 @@ def main():
 
     get_subparsers.add_parser('playlists', help='get playlists')
     get_subparsers.add_parser('albums', help='get albums')
+    get_subparsers.add_parser('queue', help='get current track and queue')
 
     # Play specific item
     play_type_parser = play_parser.add_subparsers(dest='play_type')
@@ -81,10 +83,7 @@ def main():
     }
 
     client = Client()
-    if client.connect():
-        client.send_command(payload)
-        client.handle_response(getattr(args, 'format'))
-        client.close()
+    client.render(client.execute(payload), getattr(args, 'format'))
 
 if __name__ == "__main__":  # pragma: no cover - exercised by console entry point
     main()

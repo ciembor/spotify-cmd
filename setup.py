@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="spotify-cmd",
-    version="0.1.19",
+    version="0.1.20",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     install_requires=[
@@ -30,7 +30,8 @@ setup(
     entry_points={
         'console_scripts': [
             'spotify-cmd = spotify_cmd_client.main:main',
-            'spotify-cmd-daemon = spotify_cmd_daemon.main:main'
+            'spotify-cmd-daemon = spotify_cmd_daemon.main:main',
+            'spotify-cmd-ui = spotify_cmd_ui_client.main:main',
         ]
     },
     author="Maciej Ciemborowicz",
