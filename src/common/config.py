@@ -14,9 +14,8 @@ class Config:
     def __init__(self):
         if Config._instance is not None:
             raise Exception("This class is a singleton!")
-        else:
-            Config._instance = self
-            self.load_config()
+        self.load_config()
+        Config._instance = self
 
     def load_config(self):
         config_file = self._find_config_file()

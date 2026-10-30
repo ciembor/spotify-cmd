@@ -1,0 +1,7 @@
+[run]
+source = src
+
+[report]
+fail_under = 100
+show_missing = True
+skip_covered = False

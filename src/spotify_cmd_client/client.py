@@ -37,10 +37,10 @@ class Client:
             response_json = SocketDataHandler.receive_data(self.sock)
             if response_json:
                 response_dict = json.loads(response_json)
-                if (format == 'verbose'):
+                if format == 'verbose':
                     formatted_response = json.dumps(response_dict, indent=2)
                     print(formatted_response)
-                if (format == 'json'):
+                elif format == 'json':
                     formatted_response = json.dumps(response_dict['payload'], indent=2)
                     print(formatted_response)
                 else:

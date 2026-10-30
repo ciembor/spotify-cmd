@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="spotify-cmd",
-    version="0.1.17",
+    version="0.1.18",
     packages=find_packages(),
     install_requires=[
         'argparse==1.4.0',
@@ -14,6 +14,17 @@ setup(
         'spotipy==2.23.0',
         'python-daemon==3.0.1'
     ],
+    extras_require={
+        'test': [
+            'coverage[toml]>=7.6,<8',
+            'pytest>=8.3,<9',
+        ],
+        'dev': [
+            'coverage[toml]>=7.6,<8',
+            'pre-commit>=4.0,<5',
+            'pytest>=8.3,<9',
+        ],
+    },
     entry_points={
         'console_scripts': [
             'spotify-cmd = src.spotify_cmd_client.main:main',

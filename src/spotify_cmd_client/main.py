@@ -71,11 +71,13 @@ def main():
         'type': (getattr(args, 'get_type', None) or
                  getattr(args, 'play_type', None) or
                  getattr(args, 'search_type', None)),
-        'value': (getattr(args, 'state', None) or
-                  getattr(args, 'level', None) or
-                  getattr(args, 'name', None) or
-                  getattr(args, 'uri', None) or
-                  getattr(args, 'search_query', None))
+        'value': next((value for value in (
+            getattr(args, 'state', None),
+            getattr(args, 'level', None),
+            getattr(args, 'name', None),
+            getattr(args, 'uri', None),
+            getattr(args, 'search_query', None),
+        ) if value is not None), None)
     }
 
     client = Client()
@@ -84,5 +86,5 @@ def main():
         client.handle_response(getattr(args, 'format'))
         client.close()
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - exercised by console entry point
     main()

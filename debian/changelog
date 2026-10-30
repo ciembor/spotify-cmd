@@ -1,3 +1,10 @@
+spotify-cmd (0.1.18) unstable; urgency=medium
+
+  * Add comprehensive tests and enforce 100% test coverage before commits.
+  * Fix command handling, socket cleanup, and daemon entry point behavior.
+
+ -- Maciej Ciemborowicz <maciej.ciemborowicz@gmail.com>  Fri, 30 Oct 2026 12:00:00 +0000
+
 spotify-cmd (0.1.17) unstable; urgency=medium
 
   * Fix stale daemon lock handling by tracking PID in lock file.

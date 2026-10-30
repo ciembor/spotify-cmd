@@ -71,16 +71,21 @@ def run_server_daemon():
         install_signal_handlers(server)
         server.start_server()
 
-parser = argparse.ArgumentParser()
-parser.add_argument("-f", "--foreground", action="store_true", help="Run in foreground mode (not as a daemon)")
-parser.add_argument("--version", action="store_true", help="Show spotify-cmd-daemon version and exit")
-args = parser.parse_args()
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-f", "--foreground", action="store_true", help="Run in foreground mode (not as a daemon)")
+    parser.add_argument("--version", action="store_true", help="Show spotify-cmd-daemon version and exit")
+    args = parser.parse_args()
 
-if args.version:
-    print(get_pkg_version())
-    sys.exit(0)
+    if args.version:
+        print(get_pkg_version())
+        return
 
-if args.foreground:
-    run_server_foreground()
-else:
-    run_server_daemon()
+    if args.foreground:
+        run_server_foreground()
+    else:
+        run_server_daemon()
+
+
+if __name__ == "__main__":  # pragma: no cover - exercised by console entry point
+    main()

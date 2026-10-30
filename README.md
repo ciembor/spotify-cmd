@@ -1,4 +1,4 @@
-# 📻 spotify-cmd v0.1.17
+# 📻 spotify-cmd v0.1.18
 
 `spotify-cmd` is a Spotify client that allows controlling the playback of **albums and playlists from a user's library** (based on names or Spotify URIs) and individual tracks (based solely on Spotify URIs). The application is intended for use with [spotifyd](https://github.com/Spotifyd/spotifyd), but it works with any Spotify-enabled device.
 
@@ -115,6 +115,22 @@ spotify-cmd find artist "Nils Frahm"
 ## For Developers
 
 Developers can create interfaces for `spotify-cmd-daemon` using `/run/spotify-cmd/spotify-cmd.sock` (Linux) or `/tmp/spotify-cmd-daemon.sock` (other systems). Socket handling and data format details are in the `./src/common` directory (there is no documentation).
+
+### Test coverage
+
+Install development dependencies and enable the Git hook:
+
+```bash
+pip install -e '.[dev]'
+pre-commit install
+```
+
+Every commit runs the test suite with coverage for `src`. A commit passes only with 100% coverage. Run the same check manually with:
+
+```bash
+python -m coverage run -m pytest
+python -m coverage report
+```
 
 Daemon helper:
 

@@ -21,7 +21,10 @@ class SocketServer:
 
     def cleanup_socket(self):
         if os.path.exists(self.server_address):
-            os.remove(self.server_address)
+            try:
+                os.remove(self.server_address)
+            except FileNotFoundError:
+                pass
 
     def start_server(self):
         self.cleanup_socket()

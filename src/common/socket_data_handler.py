@@ -20,6 +20,8 @@ class SocketDataHandler:
 
         while True:
             packet = connection.recv(SocketDataHandler.SOCKET_BUFFER_SIZE)
+            if not packet:
+                return None
             data += packet
 
             if SocketDataHandler.END_OF_MESSAGE in data:
@@ -29,5 +31,3 @@ class SocketDataHandler:
         if end_of_message_received:
             data = data.replace(SocketDataHandler.END_OF_MESSAGE, b"")
             return data.decode()
-        else:
-            return None
