@@ -1,4 +1,5 @@
 from .get_album import get_album
+from .get_artist import get_artist
 from .get_playlist import get_playlist
 
 def get_resource_uri(spotipy_client, type, value):
@@ -6,6 +7,8 @@ def get_resource_uri(spotipy_client, type, value):
 
     if (type == 'album'):
         resource_uri = get_album(spotipy_client, value)['uri']
+    elif (type == 'artist'):
+        resource_uri = get_artist(spotipy_client, value)['uri']
     elif (type == 'playlist'):
         resource_uri = get_playlist(spotipy_client, value)['uri']
     elif (type == 'uri'):

@@ -46,13 +46,12 @@ def test_config_validation_and_locations(tmp_path, monkeypatch):
     with pytest.raises(Exception, match='client_id'):
         Config.get_instance()
 
-    Config._instance = None
     monkeypatch.setattr(os.path, 'exists', lambda path: path == '/etc/spotify-cmd/config.ini')
     assert Config._find_config_file(Config.__new__(Config)) == '/etc/spotify-cmd/config.ini'
 
 
 def test_socket_message_round_trip():
-    message = SocketMessage('request', {'command': 'pause'}, 'client')
+    message = SocketMessage('request', {'command': 'pause'}, 'client', state_revision=7)
     decoded = SocketMessage.from_json(message.to_json())
 
     assert decoded.message_type == 'request'
@@ -60,6 +59,7 @@ def test_socket_message_round_trip():
     assert decoded.app_id == 'client'
     assert decoded.message_id == message.message_id
     assert decoded.timestamp == message.timestamp
+    assert decoded.state_revision == 7
 
 
 def test_socket_data_handler_handles_chunking_and_eof(monkeypatch):

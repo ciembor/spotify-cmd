@@ -1,4 +1,5 @@
 from .get_library_albums import get_library_albums
+from .get_library_artists import get_library_artists
 from .get_library_playlists import get_library_playlists
 from .next_track import next_track
 from .pause_playback import pause_playback
@@ -9,6 +10,7 @@ from .set_shuffle import set_shuffle
 from .set_volume import set_volume
 from .start_playback import start_playback
 from .search import search
+from .seek_playback import seek_playback
 from .get_queue import get_queue
 from .get_context_tracks import get_context_tracks
 from .play_queue_track import play_queue_track

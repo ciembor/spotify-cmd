@@ -1,4 +1,6 @@
+import argparse
 import curses
+from importlib.metadata import PackageNotFoundError, version
 
 from .controller import TuiController
 from .gateway import SpotifyGateway
@@ -37,12 +39,16 @@ class TuiApplication:
     def _handle_key(self, key):
         if key in (ord('q'), 27):
             return False
-        if key in (ord('1'), ord('2'), ord('3')):
+        if key in range(ord('1'), ord('5')):
             self.controller.select_view(key - ord('1'))
         elif key == curses.KEY_UP:
             self.controller.move(-1)
         elif key == curses.KEY_DOWN:
             self.controller.move(1)
+        elif key == curses.KEY_LEFT:
+            self.controller.seek(-1)
+        elif key == curses.KEY_RIGHT:
+            self.controller.seek(1)
         elif key in (curses.KEY_ENTER, 10, 13):
             self.controller.play_selected()
         elif key == ord(' '):
@@ -54,5 +60,22 @@ class TuiApplication:
         return True
 
 
-def main():
+def get_pkg_version():
+    try:
+        return version('spotify-cmd')
+    except PackageNotFoundError:
+        return 'unknown'
+
+
+def create_parser():
+    parser = argparse.ArgumentParser(description='Terminal UI for spotify-cmd.')
+    parser.add_argument('--version', action='store_true', help='show spotify-cmd-ui version and exit')
+    return parser
+
+
+def main(argv=None):
+    args = create_parser().parse_args(argv)
+    if args.version:
+        print(get_pkg_version())
+        return
     curses.wrapper(TuiApplication().run)

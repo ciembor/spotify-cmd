@@ -45,9 +45,11 @@ def test_existence_helper_api_errors():
         def track(self, uri): raise SpotifyException(404, -1, 'missing')
         def album(self, uri): raise SpotifyException(500, -1, 'broken')
         def playlist(self, uri): raise SpotifyException(404, -1, 'missing')
+        def artist(self, uri): raise SpotifyException(404, -1, 'missing')
     api = Api()
     assert not check_resource_existence(api, 'track', 'x')
     assert not check_resource_existence(api, 'playlist', 'x')
+    assert not check_resource_existence(api, 'artist', 'x')
     with pytest.raises(SpotifyException):
         check_resource_existence(api, 'album', 'x')
 
@@ -63,6 +65,9 @@ def test_operations_preserve_nonempty_spotify_responses():
     assert operations.resume_playback(api, 'd') == {'api': 'start_playback'}
     assert operations.set_shuffle(api, 'd', 'off') == {'api': 'shuffle'}
     assert operations.set_volume(api, 'd', 50) == {'api': 'volume'}
+    api.current_playback = lambda: {'progress_ms': 0, 'item': {'duration_ms': 1_000}}
+    api.seek_track = lambda _position_ms, **_kwargs: {'api': 'seek_track'}
+    assert operations.seek_playback(api, 'd', 500) == {'api': 'seek_track', 'progress_ms': 500}
 
 
 def make_controller(monkeypatch):
@@ -86,13 +91,14 @@ def test_controller_refresh_fallbacks_and_command_routing(monkeypatch):
     with pytest.raises(Exception, match='could not be activated'):
         controller.ensure_device_active(retries=0, delay=0)
 
-    controller.response = None
     controller.device_id = 'd'
     monkeypatch.setattr(controller, 'ensure_device_active', lambda **kwargs: None)
     monkeypatch.setattr('spotify_cmd_daemon.spotify_controller.operations.next_track', lambda *args: {'notification': 'next'})
     controller.execute_command(type('Message', (), {'payload': {'command': 'next'}})())
     monkeypatch.setattr('spotify_cmd_daemon.spotify_controller.operations.previous_track', lambda *args: {'notification': 'previous'})
     controller.execute_command(type('Message', (), {'payload': {'command': 'previous'}})())
+    monkeypatch.setattr('spotify_cmd_daemon.spotify_controller.operations.seek_playback', lambda *args: {'notification': 'seek'})
+    controller.execute_command(type('Message', (), {'payload': {'command': 'seek', 'value': 10_000}})())
     for command, handler in [('play', 'handle_play'), ('set', 'handle_set'), ('get', 'handle_get'), ('find', 'handle_search')]:
         seen = []
         monkeypatch.setattr(controller, handler, lambda payload, seen=seen: seen.append(payload))
@@ -105,28 +111,30 @@ def test_controller_handlers_and_spotify_errors(monkeypatch):
     controller.device_id = 'd'
     monkeypatch.setattr('spotify_cmd_daemon.spotify_controller.get_resource_uri', lambda *args: 'spotify:album:a')
     monkeypatch.setattr('spotify_cmd_daemon.spotify_controller.operations.start_playback', lambda *args: {'notification': 'play'})
-    controller.handle_play({'type': 'album', 'value': 'Album'})
-    assert controller.response == {'notification': 'play'}
+    assert controller.handle_play({'type': 'album', 'value': 'Album'}) == {'notification': 'play'}
+    monkeypatch.setattr('spotify_cmd_daemon.spotify_controller.get_resource_uri', lambda *args: 'spotify:artist:maddie')
+    artist_queues = []
+    monkeypatch.setattr(controller, '_start_artist_queue', lambda uri, name: artist_queues.append((uri, name)))
+    controller.handle_play({'type': 'artist', 'value': 'Maddie Ashman'})
+    assert artist_queues == [('spotify:artist:maddie', 'Maddie Ashman')]
     monkeypatch.setattr('spotify_cmd_daemon.spotify_controller.operations.resume_playback', lambda *args: {'notification': 'resume'})
-    controller.handle_play({})
-    assert controller.response == {'notification': 'resume'}
+    assert controller.handle_play({}) == {'notification': 'resume'}
     monkeypatch.setattr('spotify_cmd_daemon.spotify_controller.operations.set_shuffle', lambda *args: {'notification': 'shuffle'})
     monkeypatch.setattr('spotify_cmd_daemon.spotify_controller.operations.set_volume', lambda *args: {'notification': 'volume'})
     controller.handle_set({'setting': 'shuffle', 'value': 'on'})
-    controller.handle_set({'setting': 'volume', 'value': 1})
-    assert controller.response == {'notification': 'volume'}
+    assert controller.handle_set({'setting': 'volume', 'value': 1}) == {'notification': 'volume'}
     monkeypatch.setattr('spotify_cmd_daemon.spotify_controller.operations.get_library_albums', lambda *args: {'albums': []})
     monkeypatch.setattr('spotify_cmd_daemon.spotify_controller.operations.get_library_playlists', lambda *args: {'playlists': []})
+    monkeypatch.setattr('spotify_cmd_daemon.spotify_controller.operations.get_library_artists', lambda *args: {'artists': []})
     controller.handle_get({'type': 'albums'})
     controller.handle_get({'type': 'playlists'})
-    assert controller.response == {'playlists': []}
+    assert controller.handle_get({'type': 'artists'}) == {'artists': []}
     monkeypatch.setattr('spotify_cmd_daemon.spotify_controller.operations.search', lambda *args: {'tracks': []})
-    controller.handle_search({'type': 'track', 'value': 'x'})
-    assert controller.response == {'tracks': []}
+    assert controller.handle_search({'type': 'track', 'value': 'x'}) == {'tracks': []}
 
     monkeypatch.setattr(controller, 'ensure_device_active', lambda **kwargs: (_ for _ in ()).throw(SpotifyException(400, -1, 'bad request')))
-    controller.execute_command(type('Message', (), {'payload': {'command': 'pause'}})())
-    assert 'bad request' in controller.response['error']
+    response = controller.execute_command(type('Message', (), {'payload': {'command': 'pause'}})())
+    assert 'bad request' in response['error']
 
 
 def test_daemon_process_helpers(monkeypatch, tmp_path):

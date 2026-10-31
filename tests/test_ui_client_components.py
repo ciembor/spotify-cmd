@@ -1,13 +1,14 @@
 import json
 import socket
 import threading
+from importlib.metadata import PackageNotFoundError
 
 import pytest
 
 from common.daemon_client import DaemonClient
 from spotify_cmd_ui_client.controller import TuiController
-from spotify_cmd_ui_client.gateway import RequestCancellation, SpotifyGateway
-from spotify_cmd_ui_client.main import TuiApplication, main
+from spotify_cmd_ui_client.gateway import CommandResult, RequestCancellation, SpotifyGateway
+from spotify_cmd_ui_client.main import TuiApplication, get_pkg_version, main
 from spotify_cmd_ui_client.state import TuiState, View
 from spotify_cmd_ui_client.view import CursesView
 
@@ -20,6 +21,10 @@ class FakeClient:
     def request(self, payload):
         self.requests.append(payload)
         return self.response
+
+    def request_with_metadata(self, payload):
+        self.requests.append(payload)
+        return {'payload': self.response, 'state_revision': 4}
 
     def cancel(self):
         self.cancelled = True
@@ -45,6 +50,8 @@ def test_gateway_builds_protocol_requests_and_cancellation_interrupts_client():
     assert gateway.play('uri', 'spotify:album:x') == {'tracks': []}
     assert clients[-1].requests[-1] == {'command': 'play', 'setting': None, 'type': 'uri', 'value': 'spotify:album:x'}
     assert gateway.command('set', 'shuffle', 'on') == {'tracks': []}
+    assert gateway.play_with_state_revision('uri', 'spotify:album:x').state_revision == 4
+    assert gateway.command_with_state_revision('pause').payload == {'tracks': []}
     stopped = RequestCancellation()
     stopped.cancel()
     assert gateway.load('albums', None, stopped) is None
@@ -76,6 +83,32 @@ def test_controller_events_errors_and_failed_load_are_visible():
     controller._load_token = 1
     controller.tick()
     assert 'Could not load albums' in controller.state.message
+    controller.close()
+
+
+def test_controller_discards_event_at_or_before_its_command_revision():
+    controller = TuiController()
+    controller.state.accept_state_revision(4)
+    controller._events.put({'event': 'state_changed', 'state_revision': 4, 'state': {'item': {'id': 'stale'}}})
+    controller._events.put({'event': 'state_changed', 'state_revision': 5, 'state': {'item': {'id': 'fresh'}}})
+
+    controller.tick()
+
+    assert controller.state.playing_id == 'fresh'
+    assert controller.state.latest_state_revision == 5
+    controller.close()
+
+
+def test_controller_records_command_response_revision():
+    class Gateway:
+        def command_with_state_revision(self, *_):
+            return CommandResult({'notification': 'paused'}, 6)
+
+    controller = TuiController(Gateway())
+    controller.toggle_playback()
+
+    assert controller.state.latest_state_revision == 6
+    assert controller.state.message == 'paused'
     controller.close()
 
 
@@ -116,6 +149,28 @@ def test_controller_subscription_events_context_play_and_stale_results(monkeypat
     controller.close()
 
 
+def test_controller_does_not_reload_now_playing_for_progress_events():
+    controller = TuiController()
+    controller.state.view = View.NOW_PLAYING
+    controller.state.playing_id = 'track'
+    controller.state.playback_id = 'track'
+    reloads = []
+    controller.start_load = lambda: reloads.append('load')
+
+    controller._events.put({'event': 'state_changed', 'state': {
+        'item': {'id': 'track'}, 'progress_ms': 2_000, 'context': None,
+    }})
+    controller.tick()
+    assert reloads == []
+
+    controller._events.put({'event': 'state_changed', 'state': {
+        'item': {'id': 'next'}, 'progress_ms': 0, 'context': None,
+    }})
+    controller.tick()
+    assert reloads == ['load']
+    controller.close()
+
+
 def test_controller_start_resize_and_expected_playback_event(monkeypatch):
     class Gateway:
         def subscribe(self, callback, stop):
@@ -139,6 +194,23 @@ def test_state_response_preserves_selection_and_empty_response_is_safe():
     assert state.selected == 0
     state.apply_response('albums', {'albums': []}, None)
     assert state.selected == 0
+    state.set_queue_context('spotify:artist:artist', 'Artist')
+    assert state.queue_context.name == 'Artist' and state.track_context is None
+
+
+def test_queue_result_restores_artist_context_from_the_daemon():
+    controller = TuiController()
+    controller.state.view = View.NOW_PLAYING
+    controller._load_token = 1
+    controller._results.put(__import__('spotify_cmd_ui_client.controller', fromlist=['LoadResult']).LoadResult(
+        1, 'queue', None, None,
+        {'tracks': [{'spotify_id': 'track'}], 'playing_id': 'track',
+         'artist_context_uri': 'spotify:artist:artist', 'artist_context_name': 'Artist'},
+    ))
+    controller.tick()
+    assert controller.state.title == 'Artist'
+    assert controller.state.items == [{'spotify_id': 'track'}]
+    controller.close()
 
 
 class Screen:
@@ -160,7 +232,7 @@ def test_application_routes_all_keys_and_runs_lifecycle(monkeypatch):
     app.controller.tick = lambda: calls.append('tick')
     app.controller.resize = lambda height: calls.append(('resize', height))
     app.view.draw = lambda screen, state: calls.append('draw')
-    for key, expected in ((ord('1'), ('view', 0)), (ord('2'), ('view', 1)), (ord('3'), ('view', 2))):
+    for key, expected in ((ord('1'), ('view', 0)), (ord('2'), ('view', 1)), (ord('3'), ('view', 2)), (ord('4'), ('view', 3))):
         app.controller.select_view = lambda value, calls=calls: calls.append(('view', value))
         assert app._handle_key(key)
         assert calls[-1] == expected
@@ -168,10 +240,12 @@ def test_application_routes_all_keys_and_runs_lifecycle(monkeypatch):
     app.controller.play_selected = lambda: calls.append('play')
     app.controller.toggle_playback = lambda: calls.append('toggle')
     app.controller.stop = lambda: calls.append('stop')
+    app.controller.seek = lambda value: calls.append(('seek', value))
     app.controller.toggle_shuffle = lambda: calls.append('shuffle')
     import curses
-    for key in (curses.KEY_UP, curses.KEY_DOWN, curses.KEY_ENTER, ord(' '), ord('s'), ord('h'), -1):
+    for key in (curses.KEY_UP, curses.KEY_DOWN, curses.KEY_LEFT, curses.KEY_RIGHT, curses.KEY_ENTER, ord(' '), ord('s'), ord('h'), -1):
         assert app._handle_key(key)
+    assert ('seek', -1) in calls and ('seek', 1) in calls
     assert app._handle_key(ord('q')) is False and app._handle_key(27) is False
     app.controller.start = lambda: calls.append('start')
     app.controller.close = lambda: calls.append('close')
@@ -198,20 +272,40 @@ def test_application_continues_until_cycle_requests_exit(monkeypatch):
 def test_main_uses_curses_wrapper(monkeypatch):
     called = []
     monkeypatch.setattr('spotify_cmd_ui_client.main.curses.wrapper', lambda callback: called.append(callback))
-    main()
+    main([])
     assert len(called) == 1
+
+
+def test_main_exposes_version_and_help(monkeypatch, capsys):
+    monkeypatch.setattr('spotify_cmd_ui_client.main.version', lambda _: '0.9.8')
+    assert get_pkg_version() == '0.9.8'
+    monkeypatch.setattr(
+        'spotify_cmd_ui_client.main.version',
+        lambda _: (_ for _ in ()).throw(PackageNotFoundError()),
+    )
+    assert get_pkg_version() == 'unknown'
+    monkeypatch.setattr('spotify_cmd_ui_client.main.get_pkg_version', lambda: '0.9.8')
+    main(['--version'])
+    assert capsys.readouterr().out == '0.9.8\n'
+
+    with pytest.raises(SystemExit, match='0'):
+        main(['--help'])
+    assert 'Terminal UI for spotify-cmd.' in capsys.readouterr().out
 
 
 def test_view_colors_loading_and_curses_errors(monkeypatch):
     import curses
     view = CursesView()
+    color_pairs = []
     monkeypatch.setattr(curses, 'has_colors', lambda: True)
     monkeypatch.setattr(curses, 'start_color', lambda: None)
     monkeypatch.setattr(curses, 'use_default_colors', lambda: None)
-    monkeypatch.setattr(curses, 'init_pair', lambda *args: None)
+    monkeypatch.setattr(curses, 'init_pair', lambda *args: color_pairs.append(args))
     monkeypatch.setattr(curses, 'color_pair', lambda pair: pair * 10)
     monkeypatch.setattr(curses, 'COLORS', 16, raising=False)
     view.initialize_colors()
+    assert color_pairs[0] == (view.BAR_PAIR, curses.COLOR_BLACK, curses.COLOR_WHITE)
+    assert color_pairs[2] == (view.PROGRESS_PAIR, 15, 8)
     assert view.selected_style & curses.A_BOLD
     class BrokenScreen(Screen):
         def chgat(self, *_): raise curses.error()
@@ -248,6 +342,19 @@ def test_daemon_client_request_success_no_response_and_cancel(monkeypatch):
     assert client.request({}) == {'error': 'No response from daemon.'}
     client.cancel()
     assert client.sock.closed
+
+
+def test_daemon_client_returns_response_state_revision(monkeypatch):
+    monkeypatch.setattr('common.daemon_client.socket.socket', lambda *_: FakeSocket())
+    monkeypatch.setattr('common.daemon_client.SocketDataHandler.send_data', lambda *_: None)
+    response = __import__('common.socket_message', fromlist=['SocketMessage']).SocketMessage(
+        'response', {'ok': True}, state_revision=9,
+    ).to_json()
+    monkeypatch.setattr('common.daemon_client.SocketDataHandler.receive_data', lambda _: response)
+
+    assert DaemonClient().request_with_metadata({'command': 'get'}) == {
+        'payload': {'ok': True}, 'state_revision': 9,
+    }
 
 
 def test_daemon_client_reopens_closed_socket_and_returns_protocol_errors(monkeypatch):

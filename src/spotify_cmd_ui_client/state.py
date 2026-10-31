@@ -5,11 +5,12 @@ from enum import IntEnum
 class View(IntEnum):
     ALBUMS = 0
     PLAYLISTS = 1
-    NOW_PLAYING = 2
+    ARTISTS = 2
+    NOW_PLAYING = 3
 
 
-VIEW_RESOURCES = {View.ALBUMS: 'albums', View.PLAYLISTS: 'playlists', View.NOW_PLAYING: 'queue'}
-VIEW_TITLES = {View.ALBUMS: 'Albums', View.PLAYLISTS: 'Playlists', View.NOW_PLAYING: 'Now playing'}
+VIEW_RESOURCES = {View.ALBUMS: 'albums', View.PLAYLISTS: 'playlists', View.ARTISTS: 'artists', View.NOW_PLAYING: 'queue'}
+VIEW_TITLES = {View.ALBUMS: 'Albums', View.PLAYLISTS: 'Playlists', View.ARTISTS: 'Artists', View.NOW_PLAYING: 'Now playing'}
 
 
 @dataclass(frozen=True)
@@ -26,12 +27,31 @@ class TuiState:
     first_visible: int = 0
     visible_rows: int = 1
     playing_id: str | None = None
+    playback_id: str | None = None
+    playing_track_number: int | None = None
+    playing_disc_number: int | None = None
     is_playing: bool = False
+    progress_ms: int = 0
+    duration_ms: int = 0
     shuffle_enabled: bool = False
     message: str = ''
     loading: bool = False
     track_context: TrackContext | None = None
+    queue_context: TrackContext | None = None
     expected_playing_id: str | None = None
+    latest_state_revision: int = 0
+
+    def accept_state_revision(self, revision):
+        if revision is not None:
+            self.latest_state_revision = max(self.latest_state_revision, revision)
+
+    def accepts_event_revision(self, revision):
+        if revision is None:
+            return True
+        if revision <= self.latest_state_revision:
+            return False
+        self.latest_state_revision = revision
+        return True
 
     @property
     def resource(self):
@@ -43,11 +63,36 @@ class TuiState:
 
     @property
     def title(self):
-        return self.track_context.name if self.view is View.NOW_PLAYING and self.track_context else VIEW_TITLES[self.view]
+        if self.view is View.NOW_PLAYING:
+            context = self.track_context or self.queue_context
+            return context.name if context else VIEW_TITLES[self.view]
+        return VIEW_TITLES[self.view]
 
     @property
     def selected_item(self):
         return self.items[self.selected] if self.items else None
+
+    def update_playing_item(self, item):
+        self.playback_id = item.get('id')
+        self.playing_track_number = item.get('track_number')
+        self.playing_disc_number = item.get('disc_number')
+        self.playing_id = self._display_playing_id(self.playback_id)
+
+    def _display_playing_id(self, playback_id):
+        direct_match = next((item for item in self.items if item.get('spotify_id') == playback_id), None)
+        if direct_match:
+            return direct_match['spotify_id']
+        if not (
+            self.track_context and self.track_context.uri.startswith('spotify:album:')
+            and self.playing_track_number is not None and self.playing_disc_number is not None
+        ):
+            return playback_id
+        matching_track = next((
+            item for item in self.items
+            if item.get('track_number') == self.playing_track_number
+            and item.get('disc_number') == self.playing_disc_number
+        ), None)
+        return matching_track.get('spotify_id') if matching_track else playback_id
 
     def select_view(self, view):
         if view == self.view == View.NOW_PLAYING:
@@ -65,6 +110,33 @@ class TuiState:
         self.selected = 0
         self.first_visible = 0
         self.track_context = TrackContext(uri, name) if resource_type in ('album', 'playlist') else None
+        self.queue_context = TrackContext(uri, name) if resource_type == 'artist' else None
+
+    def update_playback_context(self, context):
+        uri = (context or {}).get('uri') or ''
+        if not uri:
+            return False  # Spotify may omit context after selecting a track from an artist queue.
+        if uri.startswith('spotify:artist:'):
+            if self.queue_context and self.queue_context.uri == uri:
+                return False
+            self.track_context = None
+            self.queue_context = TrackContext(uri, 'Now playing')
+            return True
+        supported = uri.startswith(('spotify:album:', 'spotify:playlist:'))
+        if not supported:
+            changed = self.track_context is not None or self.queue_context is not None
+            self.track_context = None
+            self.queue_context = None
+            return changed
+        if self.track_context and self.track_context.uri == uri:
+            return False
+        self.queue_context = None
+        self.track_context = TrackContext(uri, 'Now playing')
+        return True
+
+    def set_queue_context(self, uri, name):
+        self.track_context = None
+        self.queue_context = TrackContext(uri, name)
 
     def resize(self, height):
         self.visible_rows = max(height - 2, 1)
@@ -83,7 +155,12 @@ class TuiState:
         self.loading = False
         self.message = response.get('error', '')
         self.items = response.get(resource if resource != 'queue' else 'tracks', [])
-        self.playing_id = response.get('playing_id', self.playing_id)
+        self.playing_track_number = response.get('playing_track_number', self.playing_track_number)
+        self.playing_disc_number = response.get('playing_disc_number', self.playing_disc_number)
+        self.playback_id = response.get('playing_id', self.playback_id)
+        self.playing_id = self._display_playing_id(self.playback_id)
+        if resource == 'tracks' and self.track_context and response.get('context_name'):
+            self.track_context = TrackContext(self.track_context.uri, response['context_name'])
         if resource == 'tracks' and self.playing_id:
             self.selected = next((i for i, item in enumerate(self.items) if item['spotify_id'] == self.playing_id), self.selected)
         elif selected_id:

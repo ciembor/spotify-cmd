@@ -11,6 +11,8 @@ from common.socket_data_handler import SocketDataHandler
 class SocketServer:
     config = Config.get_instance()
     SOCKET_BUFFER_SIZE = config.socket_buffer_size
+    SEEK_CONFIRMATION_TOLERANCE_MS = 1_500
+    SEEK_CONFIRMATION_TIMEOUT_SECONDS = 5
 
     def __init__(self, spotify_controller):
         self.server_address = SocketServer.config.socket_path
@@ -20,6 +22,34 @@ class SocketServer:
         self.subscribers_lock = threading.Lock()
         self.publish_lock = threading.Lock()
         self.last_state = None
+        self.state_revision = 0
+        self.seek_lock = threading.Lock()
+        self.pending_seek_target = None
+        self.pending_seek_deadline = None
+
+    def current_state_revision(self):
+        with self.publish_lock:
+            return self.state_revision
+
+    def defer_stale_seek_states(self, target_ms):
+        with self.seek_lock:
+            self.pending_seek_target = target_ms
+            self.pending_seek_deadline = time.monotonic() + self.SEEK_CONFIRMATION_TIMEOUT_SECONDS
+
+    def should_defer_seek_state(self, state):
+        with self.seek_lock:
+            if self.pending_seek_target is None:
+                return False
+            progress_ms = state.get('progress_ms')
+            if progress_ms is not None and abs(progress_ms - self.pending_seek_target) <= self.SEEK_CONFIRMATION_TOLERANCE_MS:
+                self.pending_seek_target = None
+                self.pending_seek_deadline = None
+                return False
+            if time.monotonic() >= self.pending_seek_deadline:
+                self.pending_seek_target = None
+                self.pending_seek_deadline = None
+                return False
+            return True
 
     @staticmethod
     def event_state(state):
@@ -28,7 +58,9 @@ class SocketServer:
             'is_playing': state.get('is_playing'),
             'shuffle_state': state.get('shuffle_state'),
             'volume_percent': state.get('volume_percent'),
+            'progress_ms': state.get('progress_ms'),
             'item_id': state.get('item', {}).get('id'),
+            'context_uri': (state.get('display_context') or state.get('context') or {}).get('uri'),
         }
 
     def publish_state(self, state=None, force=False):
@@ -38,7 +70,10 @@ class SocketServer:
             state = state or self.spotify_controller.get_playback_state()
             if not force and self.event_state(state) == self.event_state(self.last_state or {}):
                 return
-            encoded = SocketMessage('event', {'event': 'state_changed', 'state': state}).to_json()
+            self.state_revision += 1
+            encoded = SocketMessage(
+                'event', {'event': 'state_changed', 'state': state}, state_revision=self.state_revision,
+            ).to_json()
             with self.subscribers_lock:
                 subscribers = list(self.subscribers)
             for connection in subscribers:
@@ -53,6 +88,9 @@ class SocketServer:
         while self.sock:
             try:
                 state = self.spotify_controller.get_playback_state()
+                if self.should_defer_seek_state(state):
+                    time.sleep(1)
+                    continue
                 if self.event_state(state) != self.event_state(self.last_state or {}):
                     self.publish_state(state)
             except Exception as error:
@@ -96,10 +134,21 @@ class SocketServer:
                         self.subscribers.add(connection)
                     self.publish_state(force=True)
                     return
-                self.spotify_controller.execute_command(socket_message)
-                response = self.spotify_controller.get_response()
-                SocketDataHandler.send_data(connection, response.to_json())
-                self.publish_state()
+                response = self.spotify_controller.execute_command(socket_message)
+                command = socket_message.payload.get('command')
+                if command == 'seek' and 'error' not in response and response.get('progress_ms') is not None:
+                    self.defer_stale_seek_states(response['progress_ms'])
+                SocketDataHandler.send_data(
+                    connection,
+                    SocketMessage('response', response, state_revision=self.current_state_revision()).to_json(),
+                )
+                # Spotify updates its playback state asynchronously.  Publishing
+                # immediately after play can therefore broadcast the old track
+                # and clear the TUI selection before the poller sees the new one.
+                # The regular poll publishes the authoritative state shortly
+                # afterwards.
+                if command not in ('play', 'seek'):
+                    self.publish_state()
         except Exception as e:
             print(f"Connection error: {e}")
         finally:

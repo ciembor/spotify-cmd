@@ -41,6 +41,7 @@ def main():
 
     get_subparsers.add_parser('playlists', help='get playlists')
     get_subparsers.add_parser('albums', help='get albums')
+    get_subparsers.add_parser('artists', help='get followed artists')
     get_subparsers.add_parser('queue', help='get current track and queue')
 
     # Play specific item
@@ -51,6 +52,9 @@ def main():
 
     play_album_parser = play_type_parser.add_parser('album', help='play a specific album')
     play_album_parser.add_argument('name', type=str, help='album name')
+
+    play_artist_parser = play_type_parser.add_parser('artist', help='play a followed artist')
+    play_artist_parser.add_argument('name', type=str, help='artist name')
 
     play_uri_parser = play_type_parser.add_parser('uri', help='play resource by spotify URI')
     play_uri_parser.add_argument('uri', type=str, help='spotify uri')

@@ -39,16 +39,26 @@ class DaemonClient:
             self.sock.close()
 
     def request(self, payload):
+        response = self.request_with_metadata(payload)
+        return response['payload']
+
+    def request_with_metadata(self, payload):
         if self.sock.fileno() == -1:
             self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         if not self.connect():
-            return {'error': 'Cannot connect to daemon.'}
+            return {'payload': {'error': 'Cannot connect to daemon.'}, 'state_revision': None}
         try:
             SocketDataHandler.send_data(self.sock, SocketMessage('request', payload).to_json())
             response = SocketDataHandler.receive_data(self.sock)
-            return json.loads(response)['payload'] if response else {'error': 'No response from daemon.'}
+            if not response:
+                return {'payload': {'error': 'No response from daemon.'}, 'state_revision': None}
+            data = json.loads(response)
+            if 'message_type' not in data:  # compatibility with older daemons
+                return {'payload': data['payload'], 'state_revision': data.get('state_revision')}
+            message = SocketMessage.from_json(response)
+            return {'payload': message.payload, 'state_revision': message.state_revision}
         except (socket.error, json.JSONDecodeError) as error:
-            return {'error': str(error)}
+            return {'payload': {'error': str(error)}, 'state_revision': None}
         finally:
             self.close()
 
@@ -76,7 +86,11 @@ class DaemonClient:
                             buffer += packet
                             while SocketDataHandler.END_OF_MESSAGE in buffer:
                                 response, buffer = buffer.split(SocketDataHandler.END_OF_MESSAGE, 1)
-                                callback(json.loads(response.decode())['payload'])
+                                message = SocketMessage.from_json(response.decode())
+                                event = message.payload
+                                if message.state_revision is not None:
+                                    event = {**event, 'state_revision': message.state_revision}
+                                callback(event)
                 except (OSError, json.JSONDecodeError):
                     if not disconnected and not stop_event.is_set():
                         callback({'event': 'connection_error', 'error': 'Cannot connect to daemon.'})

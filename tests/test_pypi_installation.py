@@ -46,12 +46,14 @@ def test_pypi_package_installs_and_console_commands_run(tmp_path):
 
     client = bin_dir / ('spotify-cmd.exe' if os.name == 'nt' else 'spotify-cmd')
     daemon = bin_dir / ('spotify-cmd-daemon.exe' if os.name == 'nt' else 'spotify-cmd-daemon')
+    ui = bin_dir / ('spotify-cmd-ui.exe' if os.name == 'nt' else 'spotify-cmd-ui')
     assert client.is_file()
     assert daemon.is_file()
+    assert ui.is_file()
 
-    for executable in (client, daemon):
+    for executable, version_args in ((client, ('version',)), (daemon, ('--version',)), (ui, ('--version',))):
         version_result = run(
-            [str(executable), '--version'] if executable == daemon else [str(executable), 'version'],
+            [str(executable), *version_args],
             cwd=tmp_path,
         )
         assert version_result.returncode == 0, version_result.stderr

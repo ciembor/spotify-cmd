@@ -1,7 +1,7 @@
 class CollectionPresenter:
     def __init__(self, items):
         self.items = items
-        print(items)
+
     def format_item(self, item):
         return {
             'spotify_id': item['id'],

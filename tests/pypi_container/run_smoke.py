@@ -43,8 +43,10 @@ def serve_once(socket_path, received):
 assert version('spotify-cmd') == PACKAGE_VERSION
 assert command('spotify-cmd', 'version').strip() == PACKAGE_VERSION
 assert command('spotify-cmd-daemon', '--version').strip() == PACKAGE_VERSION
+assert command('spotify-cmd-ui', '--version').strip() == PACKAGE_VERSION
 assert 'usage:' in command('spotify-cmd', '--help').lower()
 assert 'usage:' in command('spotify-cmd-daemon', '--help').lower()
+assert 'usage:' in command('spotify-cmd-ui', '--help').lower()
 
 with tempfile.TemporaryDirectory() as directory:
     directory = Path(directory)

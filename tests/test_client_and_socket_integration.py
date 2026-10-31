@@ -12,6 +12,9 @@ from spotify_cmd_client.client import Client
 from spotify_cmd_client.data_presenter import DataPresenter
 from spotify_cmd_client import main as client_main
 from spotify_cmd_daemon.socket_server import SocketServer
+from spotify_cmd_ui_client.controller import TuiController
+from spotify_cmd_ui_client.gateway import SpotifyGateway
+from spotify_cmd_ui_client.state import View
 
 
 class FakeSocket:
@@ -102,8 +105,9 @@ def test_data_presenter_formats_collections_and_errors(capsys):
     DataPresenter.print_output({'error': 'bad'})
     DataPresenter.print_output({'notification': 'ok'})
     DataPresenter.print_output({'albums': [{'artists': 'A', 'name': 'B', 'spotify_id': 'id'}]})
+    DataPresenter.print_output({'artists': [{'name': 'A', 'followers': 7, 'spotify_id': 'id'}]})
     output = capsys.readouterr().out
-    assert 'Error: bad' in output and 'ok' in output and 'spotify:album:id' in output
+    assert 'Error: bad' in output and 'ok' in output and 'spotify:album:id' in output and 'spotify:artist:id' in output
 
 
 def test_cli_builds_payloads_preserving_zero_and_version(monkeypatch, capsys):
@@ -119,13 +123,17 @@ def test_cli_builds_payloads_preserving_zero_and_version(monkeypatch, capsys):
     monkeypatch.setattr('sys.argv', ['spotify-cmd', 'version'])
     client_main.main()
     assert capsys.readouterr().out == '1.2.3\n'
+    monkeypatch.setattr('sys.argv', ['spotify-cmd', 'play', 'artist', 'Artist'])
+    client_main.main()
+    assert calls[-2]['type'] == 'artist' and calls[-2]['value'] == 'Artist'
 
 
 def test_socket_server_end_to_end_with_real_unix_socket(tmp_path):
     class Controller:
         def __init__(self): self.payload = None
-        def execute_command(self, message): self.payload = message.payload
-        def get_response(self): return SocketMessage('response', {'notification': 'handled'})
+        def execute_command(self, message):
+            self.payload = message.payload
+            return {'notification': 'handled'}
 
     controller = Controller()
     server = SocketServer(controller)
@@ -151,12 +159,63 @@ def test_socket_server_end_to_end_with_real_unix_socket(tmp_path):
         SocketDataHandler.send_data(client, SocketMessage('request', {'command': 'pause'}).to_json())
         response = SocketMessage.from_json(SocketDataHandler.receive_data(client))
         assert response.payload == {'notification': 'handled'}
+        assert response.state_revision >= 0
         assert controller.payload == {'command': 'pause'}
     finally:
         client.close()
         server.stop_server()
         thread.join(timeout=1)
     assert not thread.is_alive()
+
+
+def test_socket_server_keeps_concurrent_command_responses_with_their_request():
+    address = f'/tmp/spotify-cmd-concurrent-{os.getpid()}.sock'
+    slow_started = threading.Event()
+    release_slow = threading.Event()
+
+    class Controller:
+        def execute_command(self, message):
+            value = message.payload['value']
+            if value == 'slow':
+                slow_started.set()
+                assert release_slow.wait(2)
+            return {'request': value}
+
+        def get_playback_state(self):
+            return {'item': {}}
+
+    server = SocketServer(Controller())
+    server.server_address = address
+    server_thread = threading.Thread(target=server.start_server, daemon=True)
+    server_thread.start()
+
+    def request(value, results):
+        client = DaemonClient()
+        client.server_address = address
+        results[value] = client.request({'command': 'get', 'type': 'queue', 'value': value})
+
+    results = {}
+    try:
+        for _ in range(100):
+            if os.path.exists(address):
+                break
+            threading.Event().wait(0.01)
+        slow = threading.Thread(target=request, args=('slow', results))
+        slow.start()
+        assert slow_started.wait(2)
+        fast = threading.Thread(target=request, args=('fast', results))
+        fast.start()
+        fast.join(timeout=2)
+        assert results['fast'] == {'request': 'fast'}
+        release_slow.set()
+        slow.join(timeout=2)
+        assert results['slow'] == {'request': 'slow'}
+    finally:
+        release_slow.set()
+        server.stop_server()
+        server_thread.join(timeout=2)
+        if os.path.exists(address):
+            os.unlink(address)
 
 
 def test_socket_server_serializes_event_writes_to_each_subscriber():
@@ -225,9 +284,87 @@ def test_socket_server_does_not_publish_for_playback_progress_only():
     }
     progressed_state = {**state, 'progress_ms': 2_000}
     next_track_state = {**state, 'item': {'id': 'next-track'}}
+    next_album_state = {**state, 'context': {'uri': 'spotify:album:another'}}
 
-    assert SocketServer.event_state(state) == SocketServer.event_state(progressed_state)
+    assert SocketServer.event_state(state) != SocketServer.event_state(progressed_state)
     assert SocketServer.event_state(state) != SocketServer.event_state(next_track_state)
+    assert SocketServer.event_state(state) != SocketServer.event_state(next_album_state)
+
+
+@pytest.mark.parametrize('spotify_context_available,inline_context_tracks', [
+    (True, False), (False, True), (False, False),
+])
+def test_reopened_ui_restores_album_view_through_real_daemon_socket(spotify_context_available, inline_context_tracks):
+    address = f'/tmp/spotify-cmd-reopen-{os.getpid()}.sock'
+    album_uri = 'spotify:album:wasteland'
+    tracks = [
+        {'spotify_id': 'first', 'name': 'First'},
+        {'spotify_id': 'playing', 'name': 'Playing'},
+        {'spotify_id': 'last', 'name': 'Last'},
+    ]
+
+    class Controller:
+        def get_playback_state(self):
+            context = {'uri': album_uri} if spotify_context_available else {}
+            return {'item': {'id': 'playing'}, 'context': context, 'is_playing': True}
+
+        def execute_command(self, message):
+            payload = message.payload
+            if payload['type'] == 'tracks':
+                assert payload['value'] == album_uri
+                return {'tracks': tracks, 'playing_id': 'playing', 'context_name': 'Wasteland 3'}
+            if payload['type'] == 'queue':
+                response = {
+                    'tracks': tracks[1:] + tracks[:1], 'playing_id': 'playing',
+                    'context_uri': album_uri, 'context_name': 'Wasteland 3',
+                }
+                if inline_context_tracks:
+                    response['context_tracks'] = tracks
+                return response
+            return {'albums': []}
+
+    server = SocketServer(Controller())
+    server.server_address = address
+    server_thread = threading.Thread(target=server.start_server, daemon=True)
+    server_thread.start()
+
+    def client_factory():
+        client = DaemonClient()
+        client.server_address = address
+        return client
+
+    def wait_until(predicate):
+        for _ in range(200):
+            if predicate():
+                return
+            threading.Event().wait(0.01)
+        raise AssertionError('TUI did not receive album context from daemon')
+
+    try:
+        wait_until(lambda: os.path.exists(address))
+        for _ in range(2):
+            ui = TuiController(SpotifyGateway(client_factory))
+            try:
+                ui.start()
+                def context_received():
+                    ui.tick()
+                    return ui.state.track_context is not None
+                if spotify_context_available:
+                    wait_until(context_received)
+                ui.select_view(View.NOW_PLAYING)
+                def album_loaded():
+                    ui.tick()
+                    return not ui.state.loading and ui.state.title == 'Wasteland 3'
+                wait_until(album_loaded)
+                assert [item['spotify_id'] for item in ui.state.items] == ['first', 'playing', 'last']
+                assert ui.state.selected == 1
+            finally:
+                ui.close()
+    finally:
+        server.stop_server()
+        server_thread.join(timeout=2)
+        if os.path.exists(address):
+            os.unlink(address)
 
 
 def test_socket_server_subscription_cleanup_and_failed_event_delivery(monkeypatch):
@@ -250,6 +387,67 @@ def test_socket_server_subscription_cleanup_and_failed_event_delivery(monkeypatc
     assert connection in server.subscribers and not connection.closed
     server.stop_server()
     assert connection.closed and not server.subscribers
+
+
+@pytest.mark.parametrize('command, response', [
+    ('play', {'notification': 'Playing'}),
+    ('seek', {'notification': 'Seeked.', 'progress_ms': 10_000}),
+])
+def test_socket_server_defers_state_publish_after_asynchronous_playback_commands(monkeypatch, command, response):
+    class Controller:
+        def execute_command(self, _): return response
+
+    class Connection:
+        def close(self): pass
+
+    server = SocketServer(Controller())
+    message = SocketMessage('request', {'command': command, 'type': 'uri', 'value': 'spotify:track:x'}).to_json()
+    published = []
+    monkeypatch.setattr('spotify_cmd_daemon.socket_server.SocketDataHandler.receive_data', lambda _: message)
+    monkeypatch.setattr('spotify_cmd_daemon.socket_server.SocketDataHandler.send_data', lambda *_: None)
+    monkeypatch.setattr(server, 'publish_state', lambda: published.append(True))
+
+    server.handle_connection(Connection())
+
+    assert published == []
+    assert server.pending_seek_target == (10_000 if command == 'seek' else None)
+
+
+def test_socket_server_holds_stale_seek_state_until_spotify_confirms_or_times_out():
+    server = SocketServer(object())
+    assert not server.should_defer_seek_state({'progress_ms': 1_000})
+
+    server.defer_stale_seek_states(10_000)
+    assert server.should_defer_seek_state({'progress_ms': 1_000})
+    assert not server.should_defer_seek_state({'progress_ms': 10_500})
+
+    server.defer_stale_seek_states(10_000)
+    server.pending_seek_deadline = 0
+    assert not server.should_defer_seek_state({'progress_ms': 1_000})
+
+
+def test_socket_server_poller_skips_stale_seek_state(monkeypatch):
+    class Controller:
+        def __init__(self): self.calls = 0
+        def get_playback_state(self):
+            self.calls += 1
+            return {'progress_ms': 1_000 if self.calls == 1 else 10_000, 'item': {'id': 'track'}}
+
+    controller = Controller()
+    server = SocketServer(controller)
+    server.sock = object()
+    server.defer_stale_seek_states(10_000)
+    published = []
+    monkeypatch.setattr(server, 'publish_state', lambda state: published.append(state))
+
+    def sleep(_):
+        if controller.calls > 1:
+            server.sock = None
+
+    monkeypatch.setattr('spotify_cmd_daemon.socket_server.time.sleep', sleep)
+    server.poll_state()
+
+    assert published == [{'progress_ms': 10_000, 'item': {'id': 'track'}}]
 
 
 def test_socket_server_poll_publishes_changes_and_survives_state_errors(monkeypatch):

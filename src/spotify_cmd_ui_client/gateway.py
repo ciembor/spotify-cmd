@@ -1,5 +1,12 @@
 from common.daemon_client import DaemonClient
 import threading
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class CommandResult:
+    payload: dict
+    state_revision: int | None
 
 
 class RequestCancellation:
@@ -48,8 +55,20 @@ class SpotifyGateway:
     def play(self, resource_type, value):
         return self.request({'command': 'play', 'setting': None, 'type': resource_type, 'value': value})
 
+    def play_with_state_revision(self, resource_type, value):
+        response = self.client_factory().request_with_metadata(
+            {'command': 'play', 'setting': None, 'type': resource_type, 'value': value},
+        )
+        return CommandResult(**response)
+
     def command(self, command, setting=None, value=None):
         return self.request({'command': command, 'setting': setting, 'type': None, 'value': value})
+
+    def command_with_state_revision(self, command, setting=None, value=None):
+        response = self.client_factory().request_with_metadata(
+            {'command': command, 'setting': setting, 'type': None, 'value': value},
+        )
+        return CommandResult(**response)
 
     def subscribe(self, callback, stop_event=None):
         self.client_factory().subscribe(callback, stop_event)

@@ -1,6 +1,10 @@
-def play_queue_track(spotipy_client, device_id, track_uri):
+def play_queue_track(spotipy_client, device_id, track_uri, artist_context_uri=None):
     playback = spotipy_client.current_playback() or {}
-    context_uri = (playback.get('context') or {}).get('uri')
+    if artist_context_uri:
+        track = spotipy_client.track(track_uri)
+        context_uri = track['album']['uri']
+    else:
+        context_uri = (playback.get('context') or {}).get('uri')
     if context_uri:
         spotipy_client.start_playback(
             context_uri=context_uri,

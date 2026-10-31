@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="spotify-cmd",
-    version="0.1.22",
+    version="0.9.8",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     install_requires=[

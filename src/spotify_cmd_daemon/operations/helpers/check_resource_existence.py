@@ -6,6 +6,8 @@ def check_resource_existence(spotipy_client, resource_type, resource_uri):
             spotipy_client.track(resource_uri)
         elif resource_type == 'album':
             spotipy_client.album(resource_uri)
+        elif resource_type == 'artist':
+            spotipy_client.artist(resource_uri)
         elif resource_type == 'playlist':
             spotipy_client.playlist(resource_uri)
         else:

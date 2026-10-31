@@ -7,6 +7,7 @@ import pytest
 
 from spotify_cmd_daemon.mpris import MprisPlayer, MprisService
 from spotify_cmd_daemon.spotify_controller import SpotifyController
+from spotify_cmd_daemon.playback_session import PlaybackSession
 from spotify_cmd_daemon import main as daemon_main
 
 
@@ -77,6 +78,7 @@ def test_mpris_service_connects_exports_and_starts_thread(monkeypatch):
 
 def test_controller_playback_state_and_daemon_mpris_start(monkeypatch):
     controller = SpotifyController.__new__(SpotifyController)
+    controller.session = PlaybackSession()
     controller.spotipy_client = type('Spotify', (), {
         'current_playback': lambda self: {
             'is_playing': True, 'progress_ms': 500, 'shuffle_state': True,
@@ -85,7 +87,7 @@ def test_controller_playback_state_and_daemon_mpris_start(monkeypatch):
     })()
     assert controller.get_playback_state() == {
         'is_playing': True, 'progress_ms': 500, 'shuffle_state': True,
-        'volume_percent': 30, 'item': {'id': 'track'},
+        'volume_percent': 30, 'item': {'id': 'track'}, 'context': {},
     }
     started = []
     controller.config = type('Config', (), {'mpris_enabled': True, 'mpris_bus_name': 'org.mpris.MediaPlayer2.test'})()
