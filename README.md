@@ -1,4 +1,4 @@
-# 📻 spotify-cmd v0.9.9
+# 📻 spotify-cmd v0.9.10
 
 `spotify-cmd` is a Spotify client that allows controlling the playback of **albums, playlists, and followed artists** from a user's library (based on names or Spotify URIs) and individual tracks (based solely on Spotify URIs). The application is intended for use with [spotifyd](https://github.com/Spotifyd/spotifyd), but it works with any Spotify-enabled device.
 

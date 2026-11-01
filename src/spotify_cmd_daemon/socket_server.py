@@ -17,6 +17,7 @@ class SocketServer:
     SEEK_CONFIRMATION_TOLERANCE_MS = 1_500
     SEEK_CONFIRMATION_TIMEOUT_SECONDS = 5
     POLL_INTERVAL_SECONDS = 1
+    ACCEPT_TIMEOUT_SECONDS = 0.2
 
     def __init__(self, spotify_controller, config=None):
         self.config = config or Config.get_instance()
@@ -118,6 +119,11 @@ class SocketServer:
         try:
             self.sock.bind(self.server_address)
             self.sock.listen(socket.SOMAXCONN)
+            # Closing a socket from another thread does not reliably interrupt
+            # accept() on every supported platform.  A short timeout makes
+            # stop_server() deterministic and lets the server observe its stop
+            # event promptly.
+            self.sock.settimeout(self.ACCEPT_TIMEOUT_SECONDS)
         except socket.error as e:
             self.stop_server()
             raise RuntimeError(f'Cannot open socket: {e}') from e
@@ -128,6 +134,8 @@ class SocketServer:
             while not self._stop_event.is_set():
                 try:
                     connection, _ = self.sock.accept()
+                except socket.timeout:
+                    continue
                 except OSError:
                     if self._stop_event.is_set():
                         break

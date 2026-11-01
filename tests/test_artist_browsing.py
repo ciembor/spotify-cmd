@@ -94,10 +94,27 @@ def test_album_start_resolves_market_track_at_selected_position():
 
     api = API()
     start_playback(api, 'device', 'spotify:album:a', offset=2)
-    assert api.arguments['offset'] == {'uri': 'spotify:track:playable'}
+    assert api.arguments['offset'] == {'position': 2}
     assert api.arguments['position_ms'] == 0
     api.album_tracks = lambda *args, **kwargs: {'items': []}
     assert 'error' in start_playback(api, 'device', 'spotify:album:a')
+
+
+def test_album_start_uses_track_uri_only_when_opening_the_whole_album():
+    from spotify_cmd_daemon.operations.start_playback import start_playback
+
+    class API:
+        def album(self, uri): return {}
+        def album_tracks(self, uri, **kwargs):
+            return {'items': [{'id': f"track-{kwargs['offset']}", 'uri': f"spotify:track:{kwargs['offset']}"}]}
+        def start_playback(self, **kwargs): self.arguments = kwargs
+
+    api = API()
+    start_playback(api, 'device', 'spotify:album:a')
+    assert api.arguments['offset'] == {'uri': 'spotify:track:0'}
+
+    start_playback(api, 'device', 'spotify:album:a', offset=2)
+    assert api.arguments['offset'] == {'position': 2}
 
 
 def test_artists_tab_discards_late_album_result(monkeypatch):

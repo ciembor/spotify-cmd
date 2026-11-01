@@ -515,9 +515,23 @@ def test_socket_server_poll_publishes_changes_and_survives_state_errors(monkeypa
 
 def test_socket_server_handles_accept_and_close_errors(monkeypatch):
     class BrokenAcceptSocket:
+        instances = 0
+
+        def __init__(self):
+            self.calls = 0
+            type(self).instances += 1
+            self.stop_before_error = type(self).instances > 1
+
         def bind(self, _): pass
         def listen(self, _): pass
-        def accept(self): raise OSError('accept failed')
+        def settimeout(self, _): pass
+        def accept(self):
+            self.calls += 1
+            if self.calls == 1:
+                raise socket.timeout()
+            if self.stop_before_error:
+                server._stop_event.set()
+            raise OSError('accept failed')
         def close(self): raise OSError('already closed')
 
     class Controller:
@@ -526,6 +540,7 @@ def test_socket_server_handles_accept_and_close_errors(monkeypatch):
 
     server = SocketServer(Controller())
     monkeypatch.setattr(socket, 'socket', lambda *_: BrokenAcceptSocket())
+    server.start_server()
     server.start_server()
 
     class BrokenConnection:

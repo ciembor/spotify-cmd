@@ -203,7 +203,7 @@ def test_start_playback_validates_existence_and_selects_api(monkeypatch):
     spotify.playlist_items = lambda *args, **kwargs: {'items': [{'track': {'id': str(i)}} for i in range(3)]}
     operations.start_playback(spotify, 'd', 'spotify:playlist:p', offset=2)
     assert spotify.calls[-1] == ('start_playback', {
-        'context_uri': 'spotify:playlist:p', 'device_id': 'd', 'offset': {'uri': 'spotify:track:2'}, 'position_ms': 0,
+        'context_uri': 'spotify:playlist:p', 'device_id': 'd', 'offset': {'position': 2}, 'position_ms': 0,
     })
     assert operations.start_playback(spotify, 'd', 'spotify:artist:r', 'Artist')['notification'] == 'Playback of artist Artist started.'
     assert spotify.calls[-1] == ('start_playback', {
