@@ -91,7 +91,7 @@ class CursesView:
         if view is View.ALBUMS and artists:
             return f'{name}  ●  {artists}'
         if view is View.NOW_PLAYING and artists:
-            return f'{name}  {artists}'
+            return f'{name}  ●  {artists}'
         return name
 
     def _draw_footer(self, screen, state, height, width):
