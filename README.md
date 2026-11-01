@@ -117,6 +117,8 @@ spotify-cmd find artist "Nils Frahm"
 
 ## Terminal UI
 
+![spotify-cmd terminal UI](spotify-cmd-ui.png)
+
 Run `spotify-cmd-ui` to browse albums, playlists, followed artists, and the active Spotify queue. Use `1`, `2`, `3`, and `4` to change views, arrow keys to select an item, and Enter to play it. In Artists, Enter opens the selected artist’s albums (including EPs and singles); Enter on an album starts playback. Left returns from the album list to artists. Selecting the Artists tab always opens the artist list. Left/right seek during playback. Unavailable tracks are skipped when selecting a track for playback. Space toggles play/pause, `s` stops playback, and `h` toggles shuffle. The UI receives state events from the daemon, so changes made through any client appear automatically.
 
 ## For Developers
