@@ -21,6 +21,7 @@ class SocketServer:
 
     def __init__(self, spotify_controller, config=None):
         self.config = config or Config.get_instance()
+        SocketDataHandler.SOCKET_BUFFER_SIZE = self.config.socket_buffer_size
         self.server_address = self.config.socket_path
         self.spotify_controller = spotify_controller
         self.sock = None

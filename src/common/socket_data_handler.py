@@ -1,8 +1,5 @@
-from .config import Config
-
 class SocketDataHandler:
-    config = Config.get_instance()
-    SOCKET_BUFFER_SIZE = config.socket_buffer_size
+    SOCKET_BUFFER_SIZE = 1024
     END_OF_MESSAGE = b"<END_OF_MESSAGE>"
 
     @staticmethod

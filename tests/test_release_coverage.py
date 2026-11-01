@@ -19,6 +19,7 @@ def test_config_remaining_paths(monkeypatch):
         Config.get_instance()
     Config._instance = None
     monkeypatch.undo()
+    monkeypatch.delenv('SPOTIFY_CMD_CONFIG', raising=False)
     monkeypatch.setattr('os.path.exists', lambda path: False)
     assert Config._find_config_file(Config.__new__(Config)) is None
 

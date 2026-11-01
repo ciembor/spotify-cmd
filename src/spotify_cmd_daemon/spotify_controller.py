@@ -10,6 +10,7 @@ from .operations.helpers import get_resource_uri
 from .playback_session import PlaybackSession
 from .device_service import SpotifyDeviceService
 from common.config import Config
+from common.onboarding import SCOPE
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,6 @@ class SpotifyController:
     def __init__(self):
         config = Config.get_instance()
         self.config = config
-        scope = 'user-library-read,user-follow-read,user-read-playback-state,user-modify-playback-state,playlist-read-private'
 
         # Use the config directory for a consistent cache location across users/services.
         cache_path = os.path.join(config.config_dir, 'cache', 'token-cache')
@@ -31,7 +31,7 @@ class SpotifyController:
         self.spotipy_client = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=config.spotify_client_id,
                                                                         client_secret=config.spotify_client_secret,
                                                                         redirect_uri=config.spotify_redirect_uri,
-                                                                        scope=scope,
+                                                                        scope=SCOPE,
                                                                         cache_handler=cache_handler,
                                                                         open_browser=True))
         self._devices = SpotifyDeviceService(self.spotipy_client, config.device_name)

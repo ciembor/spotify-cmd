@@ -11,7 +11,9 @@ class DaemonClient:
     """Transport client for one request or event subscription to the daemon."""
 
     def __init__(self):
-        self.server_address = Config.get_instance().socket_path
+        config = Config.get_instance(require_credentials=False)
+        self.server_address = config.socket_path
+        SocketDataHandler.SOCKET_BUFFER_SIZE = config.socket_buffer_size
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self._socket_lock = threading.Lock()
 

@@ -1,6 +1,7 @@
 import argparse
 from importlib.metadata import version, PackageNotFoundError
 from .client import Client
+from common.onboarding import initialize, prepare, authenticate
 
 def get_pkg_version():
     try:
@@ -13,6 +14,12 @@ def main():
     parser = argparse.ArgumentParser(description='Client for controlling Spotify playback through a spotify-cmd-daemon.')
     subparsers = parser.add_subparsers(dest='command', required=True)
     subparsers.add_parser('version', help='show spotify-cmd version and exit')
+    init_parser = subparsers.add_parser('init', help='create configuration without overwriting existing files')
+    init_parser.add_argument('--service', action='store_true', help='initialize the apt service configuration as its service user')
+    config_parser = subparsers.add_parser('config', help='configuration diagnostics')
+    config_parser.add_subparsers(dest='config_command', required=True).add_parser('check')
+    auth_parser = subparsers.add_parser('auth', help='authorize Spotify in the foreground')
+    auth_parser.add_argument('--no-browser', action='store_true', help='paste the redirect URL manually, for headless hosts')
 
     # Basic commands
     play_parser = subparsers.add_parser('play', help='start playback')
@@ -68,6 +75,18 @@ def main():
     if getattr(args, 'command', None) == 'version':
         print(get_pkg_version())
         return
+
+    if args.command == 'init':
+        initialize(service=args.service)
+        return
+    if args.command == 'config':
+        config = prepare(require_credentials=True)
+        print(f'Configuration valid: {config.config_path}\nSocket: {config.socket_path}')
+        return
+    if args.command == 'auth':
+        authenticate(no_browser=args.no_browser)
+        return
+    prepare()
 
     payload = {
         'command': args.command,

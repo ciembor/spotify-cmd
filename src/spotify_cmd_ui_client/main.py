@@ -5,6 +5,7 @@ from importlib.metadata import PackageNotFoundError, version
 from .controller import TuiController
 from .gateway import SpotifyGateway
 from .view import CursesView
+from common.onboarding import prepare
 
 
 class TuiApplication:
@@ -79,4 +80,5 @@ def main(argv=None):
     if args.version:
         print(get_pkg_version())
         return
+    prepare()
     curses.wrapper(TuiApplication().run)

@@ -8,11 +8,13 @@ case "$1" in
     fi
 
     install -d -o spotify-cmd -g spotify-cmd /var/lib/spotify-cmd/.config/spotify-cmd
+    runuser -u spotify-cmd -- /usr/bin/spotify-cmd init --service
+    echo 'Complete setup: sudo -u spotify-cmd spotify-cmd config check; sudo -u spotify-cmd spotify-cmd auth --no-browser'
 
     if command -v systemctl >/dev/null 2>&1; then
       systemctl daemon-reload >/dev/null 2>&1 || true
       systemctl enable spotify-cmd.service >/dev/null 2>&1 || true
-      if [ -f /var/lib/spotify-cmd/.config/spotify-cmd/config.ini ]; then
+      if runuser -u spotify-cmd -- /usr/bin/spotify-cmd config check >/dev/null 2>&1; then
         systemctl restart spotify-cmd.service >/dev/null 2>&1 || true
       fi
     fi

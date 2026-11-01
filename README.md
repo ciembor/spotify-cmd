@@ -1,4 +1,4 @@
-# 📻 spotify-cmd v0.9.10
+# 📻 spotify-cmd v0.9.11
 
 `spotify-cmd` is a Spotify client that allows controlling the playback of **albums, playlists, and followed artists** from a user's library (based on names or Spotify URIs) and individual tracks (based solely on Spotify URIs). The application is intended for use with [spotifyd](https://github.com/Spotifyd/spotifyd), but it works with any Spotify-enabled device.
 
@@ -10,6 +10,32 @@ Ensure you have Python 3 installed. Package is available on PyPi: https://pypi.o
 pip3 install spotify-cmd
 ```
 
+On first use, the CLI, terminal UI, or daemon creates a private configuration
+template and prints setup instructions. You can also prepare it explicitly:
+
+```bash
+spotify-cmd init
+# Edit the file printed by init; fill in client_id and client_secret.
+spotify-cmd config check
+spotify-cmd auth
+spotify-cmd-daemon
+spotify-cmd-ui
+```
+
+Create an app in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+and register `http://127.0.0.1:8888/callback` as its redirect URI.
+Spotify requires an explicit loopback IP rather than `localhost`
+([redirect URI requirements](https://developer.spotify.com/documentation/web-api/concepts/redirect_uri)).
+For a headless host, use `spotify-cmd auth --no-browser` and paste the full
+redirect URL when prompted. The browser may show a connection error when the
+callback is on another machine; copy its URL to the terminal on the host.
+
+`init` never overwrites an existing file. Newly created configuration files
+have permissions `0600`. `config check` validates local settings without
+contacting Spotify or printing credentials. Authorization stores the token
+in `cache/token-cache` next to the configuration. Restart the daemon after
+editing its settings. Help and version commands do not create configuration.
+
 ### Debian/Ubuntu (apt)
 
 ```bash
@@ -19,30 +45,22 @@ sudo apt update
 sudo apt install spotify-cmd
 ```
 
-After installing from apt, the daemon is managed by systemd. Create the config at `/var/lib/spotify-cmd/.config/spotify-cmd/config.ini`, then restart:
+The apt installer creates a service configuration template at
+`/var/lib/spotify-cmd/.config/spotify-cmd/config.ini` without overwriting an
+existing file. Fill in the Spotify credentials, then authorize as the service
+user so the daemon can read its token:
 
 ```bash
+sudo -u spotify-cmd spotify-cmd config check
+sudo -u spotify-cmd spotify-cmd auth --no-browser
 sudo systemctl restart spotify-cmd
 sudo systemctl status spotify-cmd --no-pager
 ```
 
-If the service stays inactive, you need a token cache at `/var/lib/spotify-cmd/.config/spotify-cmd/cache/token-cache`. You can either generate it by running a one-time OAuth flow as the service user, or copy it from a user cache.
-
-```bash
-sudo systemctl stop spotify-cmd
-sudo -u spotify-cmd /usr/bin/spotify-cmd-daemon --foreground
-# Complete the OAuth flow in your browser (use an SSH tunnel if remote).
-sudo systemctl start spotify-cmd
-```
-
-Or copy an existing cache:
-
-```bash
-sudo install -d -o spotify-cmd -g spotify-cmd /var/lib/spotify-cmd/.config/spotify-cmd/cache
-sudo cp ~/.config/spotify-cmd/cache/token-cache /var/lib/spotify-cmd/.config/spotify-cmd/cache/token-cache
-sudo chown spotify-cmd:spotify-cmd /var/lib/spotify-cmd/.config/spotify-cmd/cache/token-cache
-sudo systemctl restart spotify-cmd
-```
+The systemd service skips startup while configuration is incomplete.
+The CLI and TUI only need the socket settings; they do not need access to the
+service user's credentials. For a separate client configuration, run
+`spotify-cmd init` as your user and set `socket_path = /run/spotify-cmd/spotify-cmd.sock`.
 
 If you want to run the client as a regular user (for example `pi`), add it to the `spotify-cmd` group so it can access the daemon socket:
 
@@ -61,14 +79,19 @@ use_mpris = false
 
 ## Configuration
 
-The application configuration should be located in `~/.config/spotify-cmd/config.ini`. Below is a detailed guide on each configuration option:
+User configuration is created at `~/.config/spotify-cmd/config.ini`.
+Set `SPOTIFY_CMD_CONFIG` to select an explicit file (also used by `init`);
+an explicit missing file never falls back to another configuration.
+Otherwise the search order is the user file, the apt service file, then
+`/etc/spotify-cmd/config.ini`. Below is an example for the apt service:
 
 ```ini
 [SPOTIFY]
 client_id = your_client_id
 client_secret = your_client_secret
-device_name = your_device_name  # optional; if omitted, uses the current active device
-redirect_uri = http://localhost:8888/callback
+# Optional; omit to use the active device:
+# device_name = your_device_name
+redirect_uri = http://127.0.0.1:8888/callback
 
 [SPOTIFY_CMD_DAEMON]
 socket_path = /run/spotify-cmd/spotify-cmd.sock
@@ -77,9 +100,14 @@ socket_buffer_size = 1024
 
 * **client_id**, **client_secret** are required. Obtain these by creating an app at the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard/applications).
 * **device_name** is optional. If set, `spotify-cmd-daemon` will force to use it even if another is active; if omitted, it uses the current active device.
-* **redirect_uri** is used for Spotify authentication. If not set, it defaults to 'http://localhost:8888/callback'.
+* **redirect_uri** is used for Spotify authentication. If not set, it defaults to 'http://127.0.0.1:8888/callback'. Existing explicit values are preserved; update both the file and Spotify app settings if migrating from localhost.
 * **socket_path** specifies the Unix socket path for the daemon. Defaults to '/run/spotify-cmd/spotify-cmd.sock' on Linux and '/tmp/spotify-cmd-daemon.sock' on other systems.
 * **socket_buffer_size** defines the buffer size for socket communication. Defaults to 1024.
+
+New user templates explicitly use `/tmp/spotify-cmd-<uid>.sock`, writable
+without systemd on Linux and macOS. Service templates use
+`/run/spotify-cmd/spotify-cmd.sock`. Existing socket settings are preserved;
+CLI and daemon must use the same socket path.
 
 ## Playback device
 
@@ -184,7 +212,7 @@ Daemon helper:
 * ~~`spotify-cmd-ui`: A ncurses-based UI for track display and control, working with the same daemon.~~ [Done in 0.1.22]
 * ~~Search functionality.~~ [Done in 0.1.4]
 * ~~Support for other resource types like artists.~~ [Done]
-* Config instructions after installation / creation of default config.
+* ~~Config instructions after installation / creation of default config.~~ [Done]
 
 ## License
 

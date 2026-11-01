@@ -7,6 +7,7 @@ from importlib.metadata import version, PackageNotFoundError
 from .spotify_controller import SpotifyController
 from .socket_server import SocketServer
 from .mpris import MprisService
+from common.onboarding import prepare
 
 lock_file = "/tmp/spotify-cmd-daemon.lock"
 
@@ -85,6 +86,7 @@ def main():
         print(get_pkg_version())
         return
 
+    prepare(require_credentials=True)
     if args.foreground:
         run_server_foreground()
     else:
