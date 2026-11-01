@@ -1,3 +1,4 @@
+import curses
 import threading
 
 from spotify_cmd_ui_client.controller import TuiController
@@ -436,8 +437,37 @@ def test_view_draws_navigation_tabs_and_a_playback_progress_footer():
     passed_time = next(call for call in text_calls if call[3] == '0:30 /')
     remaining_time = next(call for call in text_calls if call[3] == ' 1:00')
     assert (passed_time[2], remaining_time[2]) == (14, 20)
-    assert passed_time[5] != remaining_time[5]
+    assert passed_time[5] == view.bar_style
+    assert remaining_time[5] == view.progress_style | curses.A_BOLD
     assert all(call[4] <= 39 for call in text_calls if call[1] == 7)
+
+
+def test_view_keeps_selected_playing_text_dark_and_other_playing_text_bold():
+    class Screen:
+        def erase(self): pass
+        def refresh(self): pass
+        def getmaxyx(self): return 6, 40
+        def chgat(self, *_): pass
+        def addnstr(self, *args): calls.append(args)
+
+    calls = []
+    state = TuiState(
+        items=[
+            {'spotify_id': 'selected', 'name': 'Selected'},
+            {'spotify_id': 'playing', 'name': 'Playing'},
+        ],
+        selected=0,
+        playing_id='playing',
+        visible_rows=2,
+    )
+    view = CursesView()
+    view.selected_style = 101
+    view.draw(Screen(), state)
+
+    selected = next(call for call in calls if 'Selected' in call[2])
+    playing = next(call for call in calls if 'Playing' in call[2])
+    assert selected[4] == view.selected_style
+    assert playing[4] == curses.A_BOLD
 
 
 def test_view_recalculates_progress_width_after_terminal_resize():

@@ -26,7 +26,7 @@ class CursesView:
             curses.init_pair(self.SELECTED_PAIR, curses.COLOR_BLACK, bright_white)
             curses.init_pair(self.PROGRESS_PAIR, bright_white, bright_black)
             self.bar_style = curses.color_pair(self.BAR_PAIR)
-            self.selected_style = curses.color_pair(self.SELECTED_PAIR) | curses.A_BOLD
+            self.selected_style = curses.color_pair(self.SELECTED_PAIR)
             self.progress_style = curses.color_pair(self.PROGRESS_PAIR)
         except curses.error:
             pass
@@ -71,11 +71,14 @@ class CursesView:
 
     def _draw_item(self, screen, row, index, item, state, width):
         playing = item.get('spotify_id') == state.playing_id
-        style = self.selected_style if index == state.selected else curses.A_NORMAL
-        if index == state.selected:
+        selected = index == state.selected
+        if selected:
+            style = self.selected_style
             self._paint_row(screen, row + 1, width, style)
-        if playing:
-            style |= curses.A_BOLD
+        elif playing:
+            style = curses.A_BOLD
+        else:
+            style = curses.A_NORMAL
         detail = item.get('artists') or item.get('owner') or self._artist_detail(item)
         marker = '▶ ' if playing else '  '
         screen.addnstr(row + 1, 0, f"{marker}{item['name']}  {detail}", width - 1, style)
@@ -106,7 +109,7 @@ class CursesView:
     def _draw_progress_label(self, screen, height, width, column, label, filled):
         passed_length = min(max(filled - column, 0), len(label))
         passed, remaining = label[:passed_length], label[passed_length:]
-        self._add_text(screen, height - 1, column, passed, width, self.bar_style | curses.A_BOLD)
+        self._add_text(screen, height - 1, column, passed, width, self.bar_style)
         self._add_text(
             screen, height - 1, column + passed_length, remaining, width,
             self.progress_style | curses.A_BOLD,

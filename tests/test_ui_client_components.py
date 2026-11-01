@@ -306,7 +306,7 @@ def test_view_colors_loading_and_curses_errors(monkeypatch):
     view.initialize_colors()
     assert color_pairs[0] == (view.BAR_PAIR, curses.COLOR_BLACK, curses.COLOR_WHITE)
     assert color_pairs[2] == (view.PROGRESS_PAIR, 15, 8)
-    assert view.selected_style & curses.A_BOLD
+    assert not view.selected_style & curses.A_BOLD
     class BrokenScreen(Screen):
         def chgat(self, *_): raise curses.error()
     state = TuiState(loading=True)
