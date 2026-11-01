@@ -14,3 +14,4 @@ from .seek_playback import seek_playback
 from .get_queue import get_queue
 from .get_context_tracks import get_context_tracks
 from .play_queue_track import play_queue_track
+from .get_artist_albums import get_artist_albums

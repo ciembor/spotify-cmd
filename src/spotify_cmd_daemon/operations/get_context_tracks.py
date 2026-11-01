@@ -1,4 +1,5 @@
 from .presenters.tracks_presenter import TracksPresenter
+from .playlist_tracks import playlist_tracks
 
 
 def get_context_tracks(spotipy_client, resource_uri):
@@ -11,13 +12,12 @@ def get_context_tracks(spotipy_client, resource_uri):
         context_name = spotipy_client.playlist(resource_id, fields='name')['name']
     else:
         raise ValueError(f'Unsupported track context: {resource_type}')
-    while True:
+    if resource_type == 'playlist':
+        tracks = list(playlist_tracks(spotipy_client, resource_id))
+    while resource_type == 'album':
         if resource_type == 'album':
-            result = spotipy_client.album_tracks(resource_id, limit=50, offset=offset)
+            result = spotipy_client.album_tracks(resource_id, limit=50, offset=offset, market='from_token')
             items = result['items']
-        elif resource_type == 'playlist':
-            result = spotipy_client.playlist_items(resource_id, limit=100, offset=offset)
-            items = [item['track'] for item in result['items'] if item.get('track')]
         tracks.extend(items)
         offset += len(result['items'])
         if not result.get('next'):

@@ -58,6 +58,36 @@ def test_album_play_opens_context_tracks_and_selects_playing_track():
     controller.close()
 
 
+def test_playback_confirmation_does_not_reload_an_already_loaded_collection():
+    class Gateway:
+        def __init__(self):
+            self.loads = []
+
+        def play(self, *_):
+            return {'notification': 'Playback started.'}
+
+        def load(self, resource, value, _):
+            self.loads.append((resource, value))
+            return {'tracks': [{'spotify_id': 'track'}], 'playing_id': 'track'}
+
+    for resource_type, spotify_type in (('albums', 'album'), ('playlists', 'playlist'), ('artists', 'artist')):
+        gateway = Gateway()
+        controller = TuiController(gateway)
+        controller.state.items = [{'spotify_id': 'resource', 'type': resource_type, 'name': 'Collection'}]
+        controller.play_selected()
+        wait_for_load(controller)
+        uri = f'spotify:{spotify_type}:resource'
+        controller._events.put({'event': 'state_changed', 'state': {
+            'item': {'id': 'track'}, 'context': {'uri': uri},
+        }})
+        controller.tick()
+
+        expected_resource = 'queue' if spotify_type == 'artist' else 'tracks'
+        assert gateway.loads == [(expected_resource, uri if expected_resource == 'tracks' else None)]
+        assert not controller.state.loading
+        controller.close()
+
+
 def test_queue_track_keeps_items_and_uses_queue_track_command():
     class Gateway:
         def load(self, *_): raise AssertionError('queue must not reload')
@@ -78,7 +108,7 @@ def test_queue_track_keeps_items_and_uses_queue_track_command():
     controller.close()
 
 
-def test_artist_view_plays_artist_and_then_shows_the_queue():
+def test_artist_view_loads_discography_without_starting_playback():
     class Gateway:
         def __init__(self): self.calls = []
         def play(self, resource_type, value):
@@ -95,8 +125,8 @@ def test_artist_view_plays_artist_and_then_shows_the_queue():
     controller.play_selected()
     wait_for_load(controller)
 
-    assert gateway.calls == [('uri', 'spotify:artist:artist-id'), ('load', 'queue', None)]
-    assert controller.state.view is View.NOW_PLAYING
+    assert gateway.calls == [('load', 'artist_albums', 'spotify:artist:artist-id')]
+    assert controller.state.view is View.ARTISTS
     controller.close()
 
 
@@ -247,7 +277,7 @@ def test_album_view_marks_the_catalogue_track_for_an_alternate_playback_id():
         {'spotify_id': 'catalogue-aquadanse', 'track_number': 2, 'disc_number': 1},
     ]
 
-    state.update_playing_item({'id': 'spotify-playback-variant', 'track_number': 2, 'disc_number': 1})
+    state.update_playing_item({'id': 'spotify-playback-variant', 'linked_from': {'id': 'catalogue-aquadanse'}, 'track_number': 2, 'disc_number': 1})
 
     assert state.playback_id == 'spotify-playback-variant'
     assert state.playing_id == 'catalogue-aquadanse'

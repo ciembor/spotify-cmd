@@ -192,14 +192,23 @@ def test_start_playback_validates_existence_and_selects_api(monkeypatch):
     module = importlib.import_module('spotify_cmd_daemon.operations.start_playback')
     monkeypatch.setattr(module, 'check_resource_existence', lambda *_: True)
     assert operations.start_playback(spotify, 'd', 'spotify:track:t')['notification'].endswith('started.')
-    assert spotify.calls[-1] == ('start_playback', {'uris': ['spotify:track:t'], 'device_id': 'd'})
+    assert spotify.calls[-1] == ('start_playback', {
+        'uris': ['spotify:track:t'], 'device_id': 'd', 'position_ms': 0,
+    })
+    spotify.album_tracks = lambda *args, **kwargs: {'items': [{'id': 'first'}]}
     assert operations.start_playback(spotify, 'd', 'spotify:album:a', 'Name')['notification'] == 'Playback of album Name started.'
+    assert spotify.calls[-1] == ('start_playback', {
+        'context_uri': 'spotify:album:a', 'device_id': 'd', 'offset': {'uri': 'spotify:track:first'}, 'position_ms': 0,
+    })
+    spotify.playlist_items = lambda *args, **kwargs: {'items': [{'track': {'id': str(i)}} for i in range(3)]}
     operations.start_playback(spotify, 'd', 'spotify:playlist:p', offset=2)
     assert spotify.calls[-1] == ('start_playback', {
-        'context_uri': 'spotify:playlist:p', 'device_id': 'd', 'offset': {'position': 2},
+        'context_uri': 'spotify:playlist:p', 'device_id': 'd', 'offset': {'uri': 'spotify:track:2'}, 'position_ms': 0,
     })
     assert operations.start_playback(spotify, 'd', 'spotify:artist:r', 'Artist')['notification'] == 'Playback of artist Artist started.'
-    assert spotify.calls[-1] == ('start_playback', {'context_uri': 'spotify:artist:r', 'device_id': 'd'})
+    assert spotify.calls[-1] == ('start_playback', {
+        'context_uri': 'spotify:artist:r', 'device_id': 'd', 'position_ms': 0,
+    })
     monkeypatch.setattr(module, 'check_resource_existence', lambda *_: False)
     assert 'not found' in operations.start_playback(spotify, 'd', 'spotify:album:a')['error']
     with pytest.raises(Exception, match='Invalid'):
@@ -231,7 +240,9 @@ def test_context_queue_and_queue_track_without_context_cover_real_playback_shape
     assert [item['spotify_id'] for item in operations.get_queue(spotify)['tracks']] == ['track', 'next']
     spotify.current_playback = lambda: {}
     operations.play_queue_track(spotify, 'device', 'spotify:track:next')
-    assert spotify.calls[-1] == ('start_playback', {'uris': ['spotify:track:next'], 'device_id': 'device'})
+    assert spotify.calls[-1] == ('start_playback', {
+        'uris': ['spotify:track:next'], 'device_id': 'device', 'position_ms': 0,
+    })
     with pytest.raises(ValueError, match='Unsupported'):
         operations.get_context_tracks(spotify, 'spotify:artist:any')
 
@@ -288,17 +299,16 @@ def test_play_queue_track_uses_current_context_when_available():
         'context_uri': 'spotify:album:album-id',
         'offset': {'uri': 'spotify:track:track-id'},
         'device_id': 'device',
+        'position_ms': 0,
     })
     spotify.current_playback = lambda: {'context': {'uri': 'spotify:artist:artist-id'}}
     spotify.track = lambda _: {'album': {'uri': 'spotify:album:album-id'}}
-    operations.play_queue_track(
+    before = list(spotify.calls)
+    response = operations.play_queue_track(
         spotify, 'device', 'spotify:track:track-id', artist_context_uri='spotify:artist:artist-id',
     )
-    assert spotify.calls[-1] == ('start_playback', {
-        'context_uri': 'spotify:album:album-id',
-        'offset': {'uri': 'spotify:track:track-id'},
-        'device_id': 'device',
-    })
+    assert 'error' in response
+    assert spotify.calls == before
 
 
 def test_validators_and_existence_errors(monkeypatch):

@@ -92,8 +92,10 @@ class CursesView:
     @staticmethod
     def _item_label(item, view):
         name = item['name']
+        if item.get('is_playable') is False:
+            name += ' [unavailable]'
         artists = item.get('artists')
-        if view is View.ALBUMS and artists:
+        if (view is View.ALBUMS or item.get('type') == 'albums') and artists:
             return f'{name}  ●  {artists}'
         if view is View.NOW_PLAYING and artists:
             return f'{name}  ●  {artists}'
@@ -111,10 +113,11 @@ class CursesView:
         return '.' * width if width <= 3 else f'{text[:width - 3]}...'
 
     def _draw_footer(self, screen, state, height, width):
-        if state.is_playing and state.duration_ms:
+        if state.is_playing and state.duration_ms and not state.message_is_error:
             self._draw_progress(screen, state, height, width)
             return
-        footer = state.message or self.FOOTER
+        hint = '← Artists  ↑/↓ Move  Enter Play album  q Quit' if state.view is View.ARTISTS and state.artist_context else self.FOOTER
+        footer = state.message or hint
         self._paint_row(screen, height - 1, width, self.bar_style)
         screen.addnstr(height - 1, 0, footer, max(width - 1, 0), self.bar_style)
 

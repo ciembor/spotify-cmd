@@ -13,5 +13,8 @@ class TracksPresenter(CollectionPresenter):
                 'track_number': item.get('track_number'),
                 'disc_number': item.get('disc_number'),
             })
+            if 'context_position' in item:
+                track_info['context_position'] = item['context_position']
+                track_info['is_playable'] = item['is_playable']
             tracks.append(track_info)
         return tracks

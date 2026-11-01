@@ -27,6 +27,7 @@ def test_controller_device_selection_and_retry(monkeypatch):
     controller, spotify = make_controller(monkeypatch)
     assert controller.device_id == 'id'
     controller.device_name = 'Office'
+    assert controller.device_name == 'Office'
     spotify.device_data[0]['is_active'] = False
     controller.ensure_device_active(force_play=True)
     assert spotify.calls[-1] == ('transfer', {'device_id': 'id', 'force_play': True})
@@ -35,11 +36,11 @@ def test_controller_device_selection_and_retry(monkeypatch):
         controller.ensure_device_active(retries=1, delay=0)
 
 
-def test_controller_stays_available_when_device_disappears(monkeypatch, capsys):
+def test_controller_stays_available_when_device_disappears(monkeypatch, caplog):
     monkeypatch.setattr('spotify_cmd_daemon.spotify_controller.time.sleep', lambda _: None)
     controller, spotify = make_controller(monkeypatch, FakeSpotify([]))
     assert controller.device_id is None
-    assert 'unavailable at startup' in capsys.readouterr().out
+    assert 'unavailable at startup' in caplog.text
 
     response = controller.execute_command(SocketMessage('request', {'command': 'pause'}))
     assert 'error' in response
@@ -185,7 +186,9 @@ def test_queue_track_uses_the_artist_context_held_by_the_session(monkeypatch):
     response = controller.handle_play({'type': 'queue_track', 'value': 'spotify:track:track'})
 
     assert response == {'notification': 'started'}
-    assert received[0][-1] == 'spotify:artist:maddie'
+    assert received[0][-2] == 'spotify:artist:maddie'
+    assert received[0][-1] == ({'spotify_id': 'track'},)
+    assert controller.session.artist_queue() is None
 
 
 def test_starting_a_non_artist_context_clears_the_artist_session(monkeypatch):
@@ -239,3 +242,25 @@ def test_daemon_main_modes_and_lock_lifecycle(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(sys, 'argv', ['daemon', '--foreground'])
     daemon_main.main()
     assert calls == ['foreground']
+
+
+@pytest.mark.parametrize('raises', [False, True])
+def test_failed_artist_track_selection_keeps_session(monkeypatch, raises):
+    controller, _ = make_controller(monkeypatch)
+    pending = controller.session.begin_artist_queue('spotify:artist:artist', 'Artist')
+    queue = controller.session.complete_artist_queue(pending, [{'spotify_id': 'track'}])
+
+    def fail(*args):
+        if raises:
+            raise RuntimeError('Playback rejected')
+        return {'error': 'Playback rejected'}
+
+    monkeypatch.setattr('spotify_cmd_daemon.spotify_controller.operations.play_queue_track', fail)
+    if raises:
+        with pytest.raises(RuntimeError, match='Playback rejected'):
+            controller.handle_play({'type': 'queue_track', 'value': 'spotify:track:track'})
+    else:
+        assert controller.handle_play({'type': 'queue_track', 'value': 'spotify:track:track'}) == {
+            'error': 'Playback rejected',
+        }
+    assert controller.session.artist_queue() == queue

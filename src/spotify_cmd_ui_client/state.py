@@ -28,6 +28,7 @@ class TuiState:
     visible_rows: int = 1
     playing_id: str | None = None
     playback_id: str | None = None
+    linked_playback_id: str | None = None
     playing_track_number: int | None = None
     playing_disc_number: int | None = None
     is_playing: bool = False
@@ -35,11 +36,17 @@ class TuiState:
     duration_ms: int = 0
     shuffle_enabled: bool = False
     message: str = ''
+    message_is_error: bool = False
     loading: bool = False
     track_context: TrackContext | None = None
     queue_context: TrackContext | None = None
+    artist_context: TrackContext | None = None
     expected_playing_id: str | None = None
     latest_state_revision: int = 0
+
+    def set_response_message(self, response):
+        self.message_is_error = bool(response.get('error'))
+        self.message = response.get('error') or response.get('notification', '')
 
     def accept_state_revision(self, revision):
         if revision is not None:
@@ -55,10 +62,14 @@ class TuiState:
 
     @property
     def resource(self):
+        if self.view is View.ARTISTS and self.artist_context:
+            return 'artist_albums'
         return 'tracks' if self.view is View.NOW_PLAYING and self.track_context else VIEW_RESOURCES[self.view]
 
     @property
     def resource_value(self):
+        if self.resource == 'artist_albums':
+            return self.artist_context.uri
         return self.track_context.uri if self.resource == 'tracks' else None
 
     @property
@@ -74,6 +85,7 @@ class TuiState:
 
     def update_playing_item(self, item):
         self.playback_id = item.get('id')
+        self.linked_playback_id = (item.get('linked_from') or {}).get('id')
         self.playing_track_number = item.get('track_number')
         self.playing_disc_number = item.get('disc_number')
         self.playing_id = self._display_playing_id(self.playback_id)
@@ -81,34 +93,21 @@ class TuiState:
     def matches_item(self, item, spotify_id):
         if item.get('id') == spotify_id:
             return True
-        expected_item = next((entry for entry in self.items if entry.get('spotify_id') == spotify_id), None)
-        return bool(
-            expected_item
-            and item.get('track_number') is not None
-            and item.get('disc_number') is not None
-            and item.get('track_number') == expected_item.get('track_number')
-            and item.get('disc_number') == expected_item.get('disc_number')
-        )
+        return (item.get('linked_from') or {}).get('id') == spotify_id
 
     def _display_playing_id(self, playback_id):
         direct_match = next((item for item in self.items if item.get('spotify_id') == playback_id), None)
         if direct_match:
             return direct_match['spotify_id']
-        if not (
-            self.track_context and self.track_context.uri.startswith('spotify:album:')
-            and self.playing_track_number is not None and self.playing_disc_number is not None
-        ):
-            return playback_id
-        matching_track = next((
-            item for item in self.items
-            if item.get('track_number') == self.playing_track_number
-            and item.get('disc_number') == self.playing_disc_number
-        ), None)
-        return matching_track.get('spotify_id') if matching_track else playback_id
+        linked_match = next((item for item in self.items
+                             if item.get('spotify_id') == self.linked_playback_id), None)
+        return linked_match['spotify_id'] if linked_match else playback_id
 
     def select_view(self, view):
         if view == self.view == View.NOW_PLAYING:
             return False
+        if View(view) is View.ARTISTS:
+            self.artist_context = None
         self.view, self.selected, self.first_visible = View(view), 0, 0
         return True
 
@@ -165,7 +164,7 @@ class TuiState:
 
     def apply_response(self, resource, response, selected_id):
         self.loading = False
-        self.message = response.get('error', '')
+        self.set_response_message({'error': response.get('error', '')})
         self.items = response.get(resource if resource != 'queue' else 'tracks', [])
         self.playing_track_number = response.get('playing_track_number', self.playing_track_number)
         self.playing_disc_number = response.get('playing_disc_number', self.playing_disc_number)

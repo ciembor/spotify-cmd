@@ -46,7 +46,8 @@ class TuiApplication:
         elif key == curses.KEY_DOWN:
             self.controller.move(1)
         elif key == curses.KEY_LEFT:
-            self.controller.seek(-1)
+            if not self.controller.navigate_back():
+                self.controller.seek(-1)
         elif key == curses.KEY_RIGHT:
             self.controller.seek(1)
         elif key in (curses.KEY_ENTER, 10, 13):

@@ -8,8 +8,6 @@ from spotipy.exceptions import SpotifyException
 from common.config import Config
 from spotify_cmd_daemon import main as daemon_main
 from spotify_cmd_daemon import operations
-from spotify_cmd_daemon.operations.helpers.get_album import get_album
-from spotify_cmd_daemon.operations.helpers.get_playlist import get_playlist
 from spotify_cmd_daemon.operations.helpers.check_resource_existence import check_resource_existence
 from spotify_cmd_daemon.spotify_controller import SpotifyController
 

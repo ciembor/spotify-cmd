@@ -1,4 +1,3 @@
-import importlib
 import socket
 
 import pytest
@@ -55,8 +54,7 @@ def test_socket_server_error_paths(monkeypatch, tmp_path):
         def bind(self, path): raise OSError('cannot bind')
         def close(self): pass
     monkeypatch.setattr(socket, 'socket', lambda *args: BrokenSocket())
-    monkeypatch.setattr('sys.exit', lambda code: (_ for _ in ()).throw(SystemExit(code)))
-    with pytest.raises(SystemExit):
+    with pytest.raises(RuntimeError, match='Cannot open socket'):
         server.start_server()
 
     server = SocketServer(object())

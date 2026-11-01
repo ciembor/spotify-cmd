@@ -1,23 +1,30 @@
 import os
-import sys
 import socket
-import json
+import logging
 import threading
 import time
+
 from common.config import Config
+from common.protocol import CommandRequest, ProtocolError
 from common.socket_message import SocketMessage
 from common.socket_data_handler import SocketDataHandler
 
+
+logger = logging.getLogger(__name__)
+
+
 class SocketServer:
-    config = Config.get_instance()
-    SOCKET_BUFFER_SIZE = config.socket_buffer_size
     SEEK_CONFIRMATION_TOLERANCE_MS = 1_500
     SEEK_CONFIRMATION_TIMEOUT_SECONDS = 5
+    POLL_INTERVAL_SECONDS = 1
 
-    def __init__(self, spotify_controller):
-        self.server_address = SocketServer.config.socket_path
+    def __init__(self, spotify_controller, config=None):
+        self.config = config or Config.get_instance()
+        self.server_address = self.config.socket_path
         self.spotify_controller = spotify_controller
         self.sock = None
+        self._stop_event = threading.Event()
+        self._poll_thread = None
         self.subscribers = set()
         self.subscribers_lock = threading.Lock()
         self.publish_lock = threading.Lock()
@@ -85,7 +92,7 @@ class SocketServer:
             self.last_state = state
 
     def poll_state(self):
-        while self.sock:
+        while self.sock and not self._stop_event.is_set():
             try:
                 state = self.spotify_controller.get_playback_state()
                 if self.should_defer_seek_state(state):
@@ -94,8 +101,8 @@ class SocketServer:
                 if self.event_state(state) != self.event_state(self.last_state or {}):
                     self.publish_state(state)
             except Exception as error:
-                print(f"Playback state error: {error}")
-            time.sleep(1)
+                logger.warning('Playback state error: %s', error)
+            self._stop_event.wait(self.POLL_INTERVAL_SECONDS)
 
     def cleanup_socket(self):
         if os.path.exists(self.server_address):
@@ -105,22 +112,29 @@ class SocketServer:
                 pass
 
     def start_server(self):
+        self._stop_event.clear()
         self.cleanup_socket()
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
             self.sock.bind(self.server_address)
             self.sock.listen(socket.SOMAXCONN)
         except socket.error as e:
-            print(f"Cannot open socket: {e}")
-            sys.exit(1)
+            self.stop_server()
+            raise RuntimeError(f'Cannot open socket: {e}') from e
 
         try:
-            threading.Thread(target=self.poll_state, daemon=True).start()
-            while True:
-                connection, _ = self.sock.accept()
+            self._poll_thread = threading.Thread(target=self.poll_state, name='spotify-cmd-poller', daemon=True)
+            self._poll_thread.start()
+            while not self._stop_event.is_set():
+                try:
+                    connection, _ = self.sock.accept()
+                except OSError:
+                    if self._stop_event.is_set():
+                        break
+                    raise
                 threading.Thread(target=self.handle_connection, args=(connection,), daemon=True).start()
-        except Exception as e:
-            print(f"Server error: {e}")
+        except OSError as error:
+            logger.error('Server error: %s', error)
         finally:
             self.stop_server()
 
@@ -129,13 +143,14 @@ class SocketServer:
             data = SocketDataHandler.receive_data(connection)
             if data:
                 socket_message = SocketMessage.from_json(data)
-                if socket_message.payload.get('command') == 'subscribe':
+                request = CommandRequest.from_payload(socket_message.payload)
+                if request.command == 'subscribe':
                     with self.subscribers_lock:
                         self.subscribers.add(connection)
                     self.publish_state(force=True)
                     return
                 response = self.spotify_controller.execute_command(socket_message)
-                command = socket_message.payload.get('command')
+                command = request.command
                 if command == 'seek' and 'error' not in response and response.get('progress_ms') is not None:
                     self.defer_stale_seek_states(response['progress_ms'])
                 SocketDataHandler.send_data(
@@ -149,8 +164,10 @@ class SocketServer:
                 # afterwards.
                 if command not in ('play', 'seek'):
                     self.publish_state()
-        except Exception as e:
-            print(f"Connection error: {e}")
+        except ProtocolError as error:
+            SocketDataHandler.send_data(connection, SocketMessage('response', {'error': str(error)}).to_json())
+        except Exception as error:
+            logger.warning('Connection error: %s', error)
         finally:
             if connection not in self.subscribers:
                 close = getattr(connection, 'close', None)
@@ -158,10 +175,21 @@ class SocketServer:
                     close()
 
     def stop_server(self):
-        if self.sock:
-            self.sock.close()
+        self._stop_event.set()
+        sock, self.sock = self.sock, None
+        if sock:
+            try:
+                sock.close()
+            except OSError:
+                pass
             self.cleanup_socket()
         with self.subscribers_lock:
-            for connection in self.subscribers:
+            subscribers, self.subscribers = list(self.subscribers), set()
+        for connection in subscribers:
+            try:
                 connection.close()
-            self.subscribers.clear()
+            except OSError:
+                pass
+        if self._poll_thread and self._poll_thread is not threading.current_thread():
+            self._poll_thread.join(timeout=self.POLL_INTERVAL_SECONDS + 0.1)
+            self._poll_thread = None

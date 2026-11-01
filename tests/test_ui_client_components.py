@@ -189,7 +189,7 @@ def test_controller_keeps_the_selected_marker_until_spotify_confirms_the_new_tra
     assert controller.state.expected_playing_id == 'selected'
 
     controller._events.put({'event': 'state_changed', 'state': {
-        'item': {'id': 'linked-selected', 'track_number': 2, 'disc_number': 1},
+        'item': {'id': 'linked-selected', 'linked_from': {'id': 'selected'}, 'track_number': 2, 'disc_number': 1},
     }})
     controller.tick()
     assert controller.state.playback_id == 'linked-selected'
@@ -218,6 +218,18 @@ def test_controller_start_resize_and_expected_playback_event(monkeypatch):
     assert loads == ['load'] and controller.state.visible_rows == 10 and controller.state.expected_playing_id is None
     controller.state.loading = False
     controller.move(1)
+    controller.close()
+
+
+def test_controller_transition_compatibility_properties_delegate_to_transition():
+    controller = TuiController()
+    controller._expect_context('spotify:album:album')
+    assert controller._expected_context_uri == 'spotify:album:album'
+    assert controller._expected_context_deadline is not None
+    controller._expected_context_deadline = 0
+    controller._expect_playing_item('track')
+    assert controller._expected_playing_deadline is not None
+    controller._expected_playing_deadline = 0
     controller.close()
 
 
@@ -327,16 +339,16 @@ def test_main_uses_curses_wrapper(monkeypatch):
 
 
 def test_main_exposes_version_and_help(monkeypatch, capsys):
-    monkeypatch.setattr('spotify_cmd_ui_client.main.version', lambda _: '0.9.8')
-    assert get_pkg_version() == '0.9.8'
+    monkeypatch.setattr('spotify_cmd_ui_client.main.version', lambda _: '0.9.9')
+    assert get_pkg_version() == '0.9.9'
     monkeypatch.setattr(
         'spotify_cmd_ui_client.main.version',
         lambda _: (_ for _ in ()).throw(PackageNotFoundError()),
     )
     assert get_pkg_version() == 'unknown'
-    monkeypatch.setattr('spotify_cmd_ui_client.main.get_pkg_version', lambda: '0.9.8')
+    monkeypatch.setattr('spotify_cmd_ui_client.main.get_pkg_version', lambda: '0.9.9')
     main(['--version'])
-    assert capsys.readouterr().out == '0.9.8\n'
+    assert capsys.readouterr().out == '0.9.9\n'
 
     with pytest.raises(SystemExit, match='0'):
         main(['--help'])

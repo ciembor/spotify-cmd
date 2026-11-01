@@ -1,6 +1,4 @@
-import socket
 import argparse
-import json
 from importlib.metadata import version, PackageNotFoundError
 from .client import Client
 
@@ -18,10 +16,10 @@ def main():
 
     # Basic commands
     play_parser = subparsers.add_parser('play', help='start playback')
-    pause_parser = subparsers.add_parser('pause', help='pause playback')
-    stop_parser = subparsers.add_parser('stop', help='stop playback')
-    next_parser = subparsers.add_parser('next', help='play next track')
-    prev_parser = subparsers.add_parser('previous', help='play previous track')
+    subparsers.add_parser('pause', help='pause playback')
+    subparsers.add_parser('stop', help='stop playback')
+    subparsers.add_parser('next', help='play next track')
+    subparsers.add_parser('previous', help='play previous track')
 
     # Set commands
     set_parser = subparsers.add_parser('set', help='player settings')

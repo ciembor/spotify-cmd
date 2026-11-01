@@ -8,6 +8,7 @@ import pytest
 from common.socket_data_handler import SocketDataHandler
 from common.socket_message import SocketMessage
 from common.daemon_client import DaemonClient
+from common.protocol import CommandRequest, ProtocolError
 from spotify_cmd_client.client import Client
 from spotify_cmd_client.data_presenter import DataPresenter
 from spotify_cmd_client import main as client_main
@@ -15,6 +16,15 @@ from spotify_cmd_daemon.socket_server import SocketServer
 from spotify_cmd_ui_client.controller import TuiController
 from spotify_cmd_ui_client.gateway import SpotifyGateway
 from spotify_cmd_ui_client.state import View
+
+
+def socket_is_listening(address):
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as probe:
+        try:
+            probe.connect(address)
+            return True
+        except OSError:
+            return False
 
 
 class FakeSocket:
@@ -142,7 +152,7 @@ def test_socket_server_end_to_end_with_real_unix_socket(tmp_path):
     thread.start()
 
     for _ in range(50):
-        if os.path.exists(server.server_address):
+        if socket_is_listening(server.server_address):
             break
         threading.Event().wait(0.01)
 
@@ -166,6 +176,46 @@ def test_socket_server_end_to_end_with_real_unix_socket(tmp_path):
         server.stop_server()
         thread.join(timeout=1)
     assert not thread.is_alive()
+
+
+def test_socket_server_rejects_an_invalid_command_payload(tmp_path):
+    class Controller:
+        def execute_command(self, _):
+            raise AssertionError('Invalid requests must not reach the controller')
+
+    server = SocketServer(Controller())
+    server.server_address = f'/tmp/spotify-cmd-invalid-{os.getpid()}.sock'
+    thread = threading.Thread(target=server.start_server, daemon=True)
+    thread.start()
+    for _ in range(50):
+        if socket_is_listening(server.server_address):
+            break
+        threading.Event().wait(0.01)
+    client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        client.connect(server.server_address)
+        SocketDataHandler.send_data(client, SocketMessage('request', {'command': 1}).to_json())
+        response = SocketMessage.from_json(SocketDataHandler.receive_data(client))
+        assert response.payload == {'error': "Request requires a non-empty 'command' string."}
+    finally:
+        client.close()
+        server.stop_server()
+        thread.join(timeout=1)
+    assert not thread.is_alive()
+
+
+@pytest.mark.parametrize('payload, field', [
+    ({'command': 'set', 'setting': 1}, 'setting'),
+    ({'command': 'get', 'type': 1}, 'type'),
+])
+def test_command_request_validates_optional_string_fields(payload, field):
+    with pytest.raises(ProtocolError, match=field):
+        CommandRequest.from_payload(payload)
+
+
+def test_command_request_preserves_the_wire_payload_shape():
+    request = CommandRequest.from_payload({'command': 'pause'})
+    assert request.to_payload() == {'command': 'pause', 'setting': None, 'type': None, 'value': None}
 
 
 def test_socket_server_keeps_concurrent_command_responses_with_their_request():
@@ -197,7 +247,7 @@ def test_socket_server_keeps_concurrent_command_responses_with_their_request():
     results = {}
     try:
         for _ in range(100):
-            if os.path.exists(address):
+            if socket_is_listening(address):
                 break
             threading.Event().wait(0.01)
         slow = threading.Thread(target=request, args=('slow', results))
@@ -431,6 +481,8 @@ def test_socket_server_poller_skips_stale_seek_state(monkeypatch):
         def __init__(self): self.calls = 0
         def get_playback_state(self):
             self.calls += 1
+            if self.calls == 2:
+                server._stop_event.set()
             return {'progress_ms': 1_000 if self.calls == 1 else 10_000, 'item': {'id': 'track'}}
 
     controller = Controller()
@@ -440,11 +492,6 @@ def test_socket_server_poller_skips_stale_seek_state(monkeypatch):
     published = []
     monkeypatch.setattr(server, 'publish_state', lambda state: published.append(state))
 
-    def sleep(_):
-        if controller.calls > 1:
-            server.sock = None
-
-    monkeypatch.setattr('spotify_cmd_daemon.socket_server.time.sleep', sleep)
     server.poll_state()
 
     assert published == [{'progress_ms': 10_000, 'item': {'id': 'track'}}]
@@ -456,14 +503,33 @@ def test_socket_server_poll_publishes_changes_and_survives_state_errors(monkeypa
         def get_playback_state(self):
             self.calls += 1
             if self.calls == 1: raise RuntimeError('temporary')
+            server._stop_event.set()
             return {'item': {'id': 'track'}}
     server = SocketServer(Controller())
     server.sock = object()
     published = []
     monkeypatch.setattr(server, 'publish_state', lambda state: published.append(state))
-    def sleep(_):
-        if server.spotify_controller.calls > 1:
-            server.sock = None
-    monkeypatch.setattr('spotify_cmd_daemon.socket_server.time.sleep', sleep)
     server.poll_state()
     assert published == [{'item': {'id': 'track'}}]  # first poll failed but loop stayed alive
+
+
+def test_socket_server_handles_accept_and_close_errors(monkeypatch):
+    class BrokenAcceptSocket:
+        def bind(self, _): pass
+        def listen(self, _): pass
+        def accept(self): raise OSError('accept failed')
+        def close(self): raise OSError('already closed')
+
+    class Controller:
+        def get_playback_state(self):
+            return {'item': {}}
+
+    server = SocketServer(Controller())
+    monkeypatch.setattr(socket, 'socket', lambda *_: BrokenAcceptSocket())
+    server.start_server()
+
+    class BrokenConnection:
+        def close(self): raise OSError('already closed')
+
+    server.subscribers.add(BrokenConnection())
+    server.stop_server()

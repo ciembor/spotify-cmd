@@ -1,5 +1,6 @@
 import os
 import time
+import logging
 
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth, CacheFileHandler
@@ -7,7 +8,11 @@ from spotipy.exceptions import SpotifyException
 from . import operations
 from .operations.helpers import get_resource_uri
 from .playback_session import PlaybackSession
+from .device_service import SpotifyDeviceService
 from common.config import Config
+
+logger = logging.getLogger(__name__)
+
 
 class SpotifyController:
     ARTIST_CONTEXT_WAIT_ATTEMPTS = 80
@@ -29,51 +34,36 @@ class SpotifyController:
                                                                         scope=scope,
                                                                         cache_handler=cache_handler,
                                                                         open_browser=True))
-        self.device_name = config.device_name
-        self.device_id = None
+        self._devices = SpotifyDeviceService(self.spotipy_client, config.device_name)
         self.session = PlaybackSession()
         # Keep the daemon available while Spotify Connect has no device yet.
         # Each command retries device discovery and reports its error to the client.
         try:
             self.ensure_device_active(force_play=False, retries=1, delay=0)
         except Exception as error:
-            print(f"Spotify device unavailable at startup: {error}")
+            logger.warning('Spotify device unavailable at startup: %s', error)
+
+    @property
+    def device_name(self):
+        return self._devices.device_name
+
+    @device_name.setter
+    def device_name(self, value):
+        self._devices.device_name = value
+
+    @property
+    def device_id(self):
+        return self._devices.device_id
+
+    @device_id.setter
+    def device_id(self, value):
+        self._devices.device_id = value
 
     def refresh_device_id(self):
-        devices = self.spotipy_client.devices()
-        device_list = devices.get('devices', [])
-
-        if self.device_name:
-            device = next((d for d in device_list if d.get('name') == self.device_name), None)
-            if not device:
-                raise Exception(f"Device '{self.device_name}' not found.")
-        else:
-            # Use currently active device; if none active, fall back to the first available.
-            device = next((d for d in device_list if d.get('is_active')), None)
-            if not device and device_list:
-                device = device_list[0]
-            if not device:
-                raise Exception("No active device found.")
-
-        self.device_id = device['id']
-        return device
+        return self._devices.refresh()
 
     def ensure_device_active(self, force_play=False, retries=2, delay=1):
-        last_err = None
-        for _ in range(retries):
-            try:
-                device = self.refresh_device_id()
-                if self.device_name and not device.get('is_active'):
-                    # Activate the configured target device without starting playback.
-                    self.spotipy_client.transfer_playback(device_id=self.device_id, force_play=force_play)
-                return device
-            except Exception as e:
-                last_err = e
-                time.sleep(delay)
-        # If we are here, retries exhausted.
-        if last_err:
-            raise last_err
-        raise Exception(f"Device '{self.device_name}' could not be activated.")
+        return self._devices.ensure_active(force_play, retries, delay, sleep=time.sleep)
 
     def execute_command(self, socket_message):
         command_data = socket_message.payload
@@ -129,9 +119,15 @@ class SpotifyController:
                 resource_uri = value['uri']
                 offset = value['offset']
             elif type == 'queue_track':
-                return operations.play_queue_track(
-                    self.spotipy_client, self.device_id, value, self._artist_queue_context_for(value),
+                context = self._artist_queue_context_for(value)
+                queue = self.session.artist_queue()
+                response = operations.play_queue_track(
+                    self.spotipy_client, self.device_id, value, context,
+                    queue.tracks if queue and context else (),
                 )
+                if context and 'error' not in response:
+                    self.session.clear_artist_queue(queue)
+                return response
             else:
                 resource_uri = get_resource_uri(self.spotipy_client, type, value)
                 offset = None
@@ -162,6 +158,8 @@ class SpotifyController:
         type = command_data.get('type')
         if type == 'albums':
             return operations.get_library_albums(self.spotipy_client)
+        elif type == 'artist_albums':
+            return operations.get_artist_albums(self.spotipy_client, command_data.get('value'))
         elif type == 'artists':
             return operations.get_library_artists(self.spotipy_client)
         elif type == 'playlists':
