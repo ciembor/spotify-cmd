@@ -442,6 +442,16 @@ def test_view_draws_navigation_tabs_and_a_playback_progress_footer():
     assert all(call[4] <= 39 for call in text_calls if call[1] == 7)
 
 
+def test_view_formats_collection_rows_for_the_active_view():
+    view = CursesView()
+    item = {'name': 'Name', 'artists': 'Artist', 'owner': 'Owner', 'followers': 1234}
+
+    assert view._item_label(item, View.ALBUMS) == 'Name  ●  Artist'
+    assert view._item_label(item, View.PLAYLISTS) == 'Name'
+    assert view._item_label(item, View.ARTISTS) == 'Name'
+    assert view._item_label(item, View.NOW_PLAYING) == 'Name  Artist'
+
+
 def test_view_keeps_selected_playing_text_dark_and_other_playing_text_bold():
     class Screen:
         def erase(self): pass

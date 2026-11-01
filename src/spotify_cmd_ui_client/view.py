@@ -1,6 +1,8 @@
 import curses
 import time
 
+from .state import View
+
 
 class CursesView:
     FOOTER = '↑/↓ Move  ←/→ Seek  Enter Play  Space Play/Pause  s Stop  h Shuffle  q Quit'
@@ -79,14 +81,18 @@ class CursesView:
             style = curses.A_BOLD
         else:
             style = curses.A_NORMAL
-        detail = item.get('artists') or item.get('owner') or self._artist_detail(item)
         marker = '▶ ' if playing else '  '
-        screen.addnstr(row + 1, 0, f"{marker}{item['name']}  {detail}", width - 1, style)
+        screen.addnstr(row + 1, 0, f'{marker}{self._item_label(item, state.view)}', width - 1, style)
 
     @staticmethod
-    def _artist_detail(item):
-        followers = item.get('followers')
-        return f'{followers:,} followers' if followers is not None else ''
+    def _item_label(item, view):
+        name = item['name']
+        artists = item.get('artists')
+        if view is View.ALBUMS and artists:
+            return f'{name}  ●  {artists}'
+        if view is View.NOW_PLAYING and artists:
+            return f'{name}  {artists}'
+        return name
 
     def _draw_footer(self, screen, state, height, width):
         if state.is_playing and state.duration_ms:
