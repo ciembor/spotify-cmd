@@ -109,7 +109,7 @@ class SocketServer:
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
             self.sock.bind(self.server_address)
-            self.sock.listen(1)
+            self.sock.listen(socket.SOMAXCONN)
         except socket.error as e:
             print(f"Cannot open socket: {e}")
             sys.exit(1)

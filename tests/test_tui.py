@@ -469,10 +469,16 @@ def test_view_draws_track_duration_on_the_right_in_now_playing():
     CursesView().draw(screen, state)
 
     row = [call for call in screen.calls if call[0] == 1]
-    title = next(call for call in row if 'A long title' in call[2])
+    title = next(call for call in row if call[2] == '  A long ti...')
     duration = next(call for call in row if call[2] == '4:03')
     assert title[3] == 14
     assert duration[1] == 15
+
+
+def test_view_truncates_rows_with_an_ellipsis():
+    assert CursesView()._truncate('Short', 10) == 'Short'
+    assert CursesView()._truncate('Long title', 7) == 'Long...'
+    assert CursesView()._truncate('Long title', 2) == '..'
 
 
 def test_view_keeps_selected_playing_text_dark_and_other_playing_text_bold():
