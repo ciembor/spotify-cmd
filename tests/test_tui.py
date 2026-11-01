@@ -322,7 +322,7 @@ def test_selected_context_ignores_old_playback_context_until_spotify_confirms_it
     }})
     controller.tick()
     assert controller.state.track_context == TrackContext('spotify:playlist:external', 'Now playing')
-    assert reloads == ['load']
+    assert reloads == ['load', 'load']
     controller.close()
 
 

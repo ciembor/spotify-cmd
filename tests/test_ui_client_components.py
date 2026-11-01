@@ -181,6 +181,7 @@ def test_controller_keeps_the_selected_marker_until_spotify_confirms_the_new_tra
     controller.state.track_context = TrackContext('spotify:album:album-id', 'Album')
     controller.state.playback_id = controller.state.playing_id = 'previous'
     controller._apply_play({'notification': 'Playback started.'}, 'selected')
+    assert controller.state.playback_id == 'selected'
 
     controller._events.put({'event': 'state_changed', 'state': {'item': {'id': 'previous'}}})
     controller.tick()
@@ -217,6 +218,23 @@ def test_controller_start_resize_and_expected_playback_event(monkeypatch):
     assert loads == ['load'] and controller.state.visible_rows == 10 and controller.state.expected_playing_id is None
     controller.state.loading = False
     controller.move(1)
+    controller.close()
+
+
+def test_controller_reloads_after_spotify_confirms_a_started_playlist(monkeypatch):
+    controller = TuiController()
+    controller.state.view = View.NOW_PLAYING
+    controller.state.track_context = TrackContext('spotify:playlist:playlist-id', 'Playlist')
+    controller._expect_context('spotify:playlist:playlist-id')
+    loads = []
+    monkeypatch.setattr(controller, 'start_load', lambda: loads.append('load'))
+
+    controller._events.put({'event': 'state_changed', 'state': {
+        'item': {'id': 'track'}, 'context': {'uri': 'spotify:playlist:playlist-id'},
+    }})
+    controller.tick()
+
+    assert loads == ['load']
     controller.close()
 
 

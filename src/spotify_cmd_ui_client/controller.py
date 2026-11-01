@@ -49,6 +49,7 @@ class TuiController:
         self._seek_in_flight = False
         self._expected_context_uri = None
         self._expected_context_deadline = None
+        self._context_confirmed = False
         self._expected_playing_deadline = None
         self._subscription_stop = threading.Event()
 
@@ -103,11 +104,13 @@ class TuiController:
             self.state.shuffle_enabled = playback_state.get('shuffle_state', self.state.shuffle_enabled)
             playback_context = playback_state.get('display_context', playback_state.get('context'))
             context_changed = False
+            context_confirmed = False
             if playback_context is not None and not self._is_stale_context(playback_context):
+                context_confirmed = self._context_confirmed
                 context_changed = self.state.update_playback_context(playback_context)
             if item_id or not (self.state.track_context or self.state.queue_context):
                 self.state.update_playing_item(playback_state.get('item', {}))
-            if self.state.view is View.NOW_PLAYING and context_changed:
+            if self.state.view is View.NOW_PLAYING and (context_changed or context_confirmed):
                 self.start_load()
             elif (playing_changed and self.state.view is View.NOW_PLAYING
                   and not self.state.track_context and not self.state.queue_context and not self.state.loading):
@@ -190,12 +193,14 @@ class TuiController:
         return False
 
     def _is_stale_context(self, context):
+        self._context_confirmed = False
         if self._expected_context_uri is None:
             return False
         uri = (context or {}).get('uri')
         if uri == self._expected_context_uri:
             self._expected_context_uri = None
             self._expected_context_deadline = None
+            self._context_confirmed = True
             return False
         if time.monotonic() < self._expected_context_deadline:
             return True
@@ -292,6 +297,7 @@ class TuiController:
         self.state.message = response.get('error') or response.get('notification', '')
         if 'error' not in response:
             self.state.playing_id = playing_id
+            self.state.playback_id = playing_id
             self._expect_playing_item(playing_id)
 
     def _apply_command(self, response):
