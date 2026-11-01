@@ -82,7 +82,11 @@ class CursesView:
         else:
             style = curses.A_NORMAL
         marker = '▶ ' if playing else '  '
-        screen.addnstr(row + 1, 0, f'{marker}{self._item_label(item, state.view)}', width - 1, style)
+        duration = self._duration_label(item, state.view)
+        label_width = max(width - len(duration) - 2, 0) if duration else max(width - 1, 0)
+        screen.addnstr(row + 1, 0, f'{marker}{self._item_label(item, state.view)}', label_width, style)
+        if duration:
+            self._add_text(screen, row + 1, width - len(duration) - 1, duration, width, style)
 
     @staticmethod
     def _item_label(item, view):
@@ -93,6 +97,11 @@ class CursesView:
         if view is View.NOW_PLAYING and artists:
             return f'{name}  ●  {artists}'
         return name
+
+    @classmethod
+    def _duration_label(cls, item, view):
+        duration_ms = item.get('duration_ms') if view is View.NOW_PLAYING else None
+        return cls._format_time(duration_ms) if duration_ms is not None else ''
 
     def _draw_footer(self, screen, state, height, width):
         if state.is_playing and state.duration_ms:

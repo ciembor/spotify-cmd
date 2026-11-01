@@ -452,6 +452,29 @@ def test_view_formats_collection_rows_for_the_active_view():
     assert view._item_label(item, View.NOW_PLAYING) == 'Name  ●  Artist'
 
 
+def test_view_draws_track_duration_on_the_right_in_now_playing():
+    class Screen:
+        def __init__(self): self.calls = []
+        def erase(self): pass
+        def refresh(self): pass
+        def getmaxyx(self): return 6, 20
+        def chgat(self, *_): pass
+        def addnstr(self, *args): self.calls.append(args)
+
+    screen = Screen()
+    state = TuiState(
+        view=View.NOW_PLAYING,
+        items=[{'spotify_id': 'track', 'name': 'A long title', 'artists': 'Artist', 'duration_ms': 243_000}],
+    )
+    CursesView().draw(screen, state)
+
+    row = [call for call in screen.calls if call[0] == 1]
+    title = next(call for call in row if 'A long title' in call[2])
+    duration = next(call for call in row if call[2] == '4:03')
+    assert title[3] == 14
+    assert duration[1] == 15
+
+
 def test_view_keeps_selected_playing_text_dark_and_other_playing_text_bold():
     class Screen:
         def erase(self): pass

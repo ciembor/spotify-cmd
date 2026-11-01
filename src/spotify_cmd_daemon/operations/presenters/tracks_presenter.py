@@ -9,6 +9,7 @@ class TracksPresenter(CollectionPresenter):
             track_info.update({
                 'artists': ', '.join([artist['name'] for artist in item['artists']]),
                 'name': item['name'],
+                'duration_ms': item.get('duration_ms'),
                 'track_number': item.get('track_number'),
                 'disc_number': item.get('disc_number'),
             })

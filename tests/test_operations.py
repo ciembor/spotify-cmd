@@ -68,7 +68,11 @@ def test_presenters_format_each_search_type():
     assert AlbumsPresenter([album()]).format()[0]['artists'] == 'Artist'
     assert ArtistsPresenter([{'id': 'a', 'name': 'Artist', 'followers': {'total': 7}}]).format()[0]['followers'] == 7
     assert PlaylistsPresenter([playlist()]).format()[0]['owner'] == 'Owner'
-    assert TracksPresenter([{'id': 't', 'name': 'Track', 'artists': [{'name': 'Artist'}]}]).format()[0]['name'] == 'Track'
+    track = TracksPresenter([{
+        'id': 't', 'name': 'Track', 'artists': [{'name': 'Artist'}], 'duration_ms': 123_000,
+    }]).format()[0]
+    assert track['name'] == 'Track'
+    assert track['duration_ms'] == 123_000
     assert EpisodesPresenter([{'id': 'e', 'name': 'Episode', 'description': 'Desc'}]).format()[0]['description'] == 'Desc'
     assert ShowsPresenter([{'id': 's', 'name': 'Show', 'description': 'Desc'}]).format()[0]['type'] == 'shows'
 
