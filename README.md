@@ -77,6 +77,116 @@ When using spotifyd on headless hosts, run it in the foreground under systemd an
 use_mpris = false
 ```
 
+## Native background services
+
+The daemon can be managed by systemd on Linux or launchd on macOS. Complete
+`spotify-cmd config check` and `spotify-cmd auth` as the account running the
+service before enabling it. Use `auth --no-browser` on a headless host.
+Services cannot complete interactive authorization themselves.
+
+Stop any manually started daemon before switching to a service. If it runs
+in the foreground, use Ctrl+C; for a detached process, inspect
+`ps -ax -o pid,command` and send `kill -TERM <pid>` to the matching daemon.
+`spotify-cmd stop` stops music playback, not the daemon process.
+Run only one daemon: the current implementation uses a shared PID lock.
+
+The templates below are in this repository's `contrib/` directory. Run the
+copy commands from a checkout, or download the linked template first.
+Use `command -v spotify-cmd` and `command -v spotify-cmd-daemon` to locate
+your installation. Service managers do not load your shell's PATH or aliases.
+Keep CLI/TUI and daemon configured to use the same socket.
+
+### Linux: systemd user service (pip/pipx)
+
+Copy the [user unit](contrib/systemd/spotify-cmd.service):
+
+```bash
+mkdir -p ~/.config/systemd/user
+cp contrib/systemd/spotify-cmd.service ~/.config/systemd/user/
+```
+
+Edit the copied file if your executables are not in `~/.local/bin`.
+`%h` expands to your home directory; use absolute paths for other locations.
+Also adjust `SPOTIFY_CMD_CONFIG` if using a non-default configuration file.
+New user configurations already specify a writable `/tmp/spotify-cmd-<uid>.sock`;
+older configurations pointing to the system service's `/run/spotify-cmd`
+directory need a writable user socket path.
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now spotify-cmd.service
+systemctl --user status spotify-cmd.service
+systemctl --user restart spotify-cmd.service
+journalctl --user -u spotify-cmd.service -f
+```
+
+This enables startup with your user manager (normally at login). To keep the
+user manager running after logout, an administrator can enable lingering with
+`sudo loginctl enable-linger YOUR_USER`. For temporary shutdown use
+`systemctl --user stop spotify-cmd.service`. To stop and disable autostart:
+
+```bash
+systemctl --user disable --now spotify-cmd.service
+```
+
+After editing the unit, run `daemon-reload` and restart it. If repeated startup
+failures hit the restart limit, fix the cause shown in the journal, then run
+`systemctl --user reset-failed spotify-cmd.service` before starting again.
+
+### Linux: system service (apt)
+
+The apt package already installs the [system unit](debian/spotify-cmd.service).
+Use it instead of installing the user unit:
+
+```bash
+sudo systemctl enable --now spotify-cmd.service
+sudo systemctl restart spotify-cmd.service
+sudo systemctl status spotify-cmd.service
+sudo journalctl -u spotify-cmd.service -f
+# Stop and disable startup at boot:
+sudo systemctl disable --now spotify-cmd.service
+```
+
+### macOS: launchd user agent
+
+Copy the [LaunchAgent](contrib/launchd/com.spotify-cmd.daemon.plist):
+
+```bash
+mkdir -p ~/Library/LaunchAgents ~/Library/Logs
+cp contrib/launchd/com.spotify-cmd.daemon.plist ~/Library/LaunchAgents/
+```
+
+Edit the copied plist: replace every `/Users/YOUR_USER` with your actual home
+directory and set the first `ProgramArguments` entry to the absolute path of
+`spotify-cmd-daemon`. Adjust the configuration path if necessary. launchd does
+not expand `~`, `$HOME`, or shell commands inside plist values.
+
+```bash
+plutil -lint ~/Library/LaunchAgents/com.spotify-cmd.daemon.plist
+launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.spotify-cmd.daemon.plist
+launchctl print "gui/$(id -u)/com.spotify-cmd.daemon"
+# Restart:
+launchctl kickstart -k "gui/$(id -u)/com.spotify-cmd.daemon"
+# Logs (default template paths):
+tail -f ~/Library/Logs/spotify-cmd.stdout.log ~/Library/Logs/spotify-cmd.stderr.log
+```
+
+The agent starts at login and restarts after failure. To stop it for the current
+session, run:
+
+```bash
+launchctl bootout "gui/$(id -u)" ~/Library/LaunchAgents/com.spotify-cmd.daemon.plist
+```
+
+To disable future autostart, also move the plist out of `~/Library/LaunchAgents`.
+After editing the plist, use `bootout` followed by `bootstrap` to load the new
+settings. These commands run as your logged-in user, without `sudo`.
+
+Both templates run the daemon with `--foreground` so the system service manager
+supervises it directly. See the native documentation for
+[systemd services](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html)
+and [launchd agents](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html).
+
 ## Configuration
 
 User configuration is created at `~/.config/spotify-cmd/config.ini`.

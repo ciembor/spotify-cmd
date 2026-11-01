@@ -1,0 +1,19 @@
+# User service for pip/pipx installations. Adjust both executable paths if needed.
+[Unit]
+Description=spotify-cmd daemon (user)
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=exec
+Environment="SPOTIFY_CMD_CONFIG=%h/.config/spotify-cmd/config.ini"
+ExecCondition="%h/.local/bin/spotify-cmd" config check
+ExecStart="%h/.local/bin/spotify-cmd-daemon" --foreground
+Restart=on-failure
+RestartSec=5
+UMask=0077
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
