@@ -9,7 +9,7 @@ from common.daemon_client import DaemonClient
 from spotify_cmd_ui_client.controller import TuiController
 from spotify_cmd_ui_client.gateway import CommandResult, RequestCancellation, SpotifyGateway
 from spotify_cmd_ui_client.main import TuiApplication, get_pkg_version, main
-from spotify_cmd_ui_client.state import TuiState, View
+from spotify_cmd_ui_client.state import TrackContext, TuiState, View
 from spotify_cmd_ui_client.view import CursesView
 
 
@@ -168,6 +168,38 @@ def test_controller_does_not_reload_now_playing_for_progress_events():
     }})
     controller.tick()
     assert reloads == ['load']
+    controller.close()
+
+
+def test_controller_keeps_the_selected_marker_until_spotify_confirms_the_new_track():
+    controller = TuiController()
+    controller.state.view = View.NOW_PLAYING
+    controller.state.items = [
+        {'spotify_id': 'previous', 'track_number': 1, 'disc_number': 1},
+        {'spotify_id': 'selected', 'track_number': 2, 'disc_number': 1},
+    ]
+    controller.state.track_context = TrackContext('spotify:album:album-id', 'Album')
+    controller.state.playback_id = controller.state.playing_id = 'previous'
+    controller._apply_play({'notification': 'Playback started.'}, 'selected')
+
+    controller._events.put({'event': 'state_changed', 'state': {'item': {'id': 'previous'}}})
+    controller.tick()
+    assert controller.state.playing_id == 'selected'
+    assert controller.state.expected_playing_id == 'selected'
+
+    controller._events.put({'event': 'state_changed', 'state': {
+        'item': {'id': 'linked-selected', 'track_number': 2, 'disc_number': 1},
+    }})
+    controller.tick()
+    assert controller.state.playback_id == 'linked-selected'
+    assert controller.state.playing_id == 'selected'
+    assert controller.state.expected_playing_id is None
+
+    controller._apply_play({'notification': 'Playback started.'}, 'selected')
+    controller._expected_playing_deadline = 0
+    controller._events.put({'event': 'state_changed', 'state': {'item': {'id': 'previous'}}})
+    controller.tick()
+    assert controller.state.playing_id == 'previous'
     controller.close()
 
 

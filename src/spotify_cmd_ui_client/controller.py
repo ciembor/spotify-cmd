@@ -31,6 +31,7 @@ class TuiController:
     SEEK_MILLISECONDS = 10_000
     SEEK_DEBOUNCE_SECONDS = 0.08
     CONTEXT_TRANSITION_GRACE_SECONDS = 5
+    PLAYBACK_TRANSITION_GRACE_SECONDS = 5
 
     def __init__(self, gateway=None):
         self.gateway = gateway or SpotifyGateway()
@@ -48,6 +49,7 @@ class TuiController:
         self._seek_in_flight = False
         self._expected_context_uri = None
         self._expected_context_deadline = None
+        self._expected_playing_deadline = None
         self._subscription_stop = threading.Event()
 
     def start(self):
@@ -86,6 +88,8 @@ class TuiController:
             if not self.state.accepts_event_revision(event.get('state_revision')):
                 continue
             playback_state = event.get('state', {})
+            if self._is_stale_playback_item(playback_state.get('item', {})):
+                continue
             item_id = playback_state.get('item', {}).get('id')
             playing_changed = item_id is not None and item_id != self.state.playback_id
             # The desktop client briefly reports an empty item while it changes
@@ -103,8 +107,6 @@ class TuiController:
                 context_changed = self.state.update_playback_context(playback_context)
             if item_id or not (self.state.track_context or self.state.queue_context):
                 self.state.update_playing_item(playback_state.get('item', {}))
-            if self.state.playback_id == self.state.expected_playing_id:
-                self.state.expected_playing_id = None
             if self.state.view is View.NOW_PLAYING and context_changed:
                 self.start_load()
             elif (playing_changed and self.state.view is View.NOW_PLAYING
@@ -168,6 +170,24 @@ class TuiController:
     def _expect_context(self, uri):
         self._expected_context_uri = uri
         self._expected_context_deadline = time.monotonic() + self.CONTEXT_TRANSITION_GRACE_SECONDS
+
+    def _expect_playing_item(self, spotify_id):
+        self.state.expected_playing_id = spotify_id
+        self._expected_playing_deadline = time.monotonic() + self.PLAYBACK_TRANSITION_GRACE_SECONDS
+
+    def _is_stale_playback_item(self, item):
+        expected_id = self.state.expected_playing_id
+        if expected_id is None:
+            return False
+        if self.state.matches_item(item, expected_id):
+            self.state.expected_playing_id = None
+            self._expected_playing_deadline = None
+            return False
+        if self._expected_playing_deadline and time.monotonic() < self._expected_playing_deadline:
+            return True
+        self.state.expected_playing_id = None
+        self._expected_playing_deadline = None
+        return False
 
     def _is_stale_context(self, context):
         if self._expected_context_uri is None:
@@ -253,7 +273,7 @@ class TuiController:
         if self.state.view is View.NOW_PLAYING and self.state.track_context:
             self._apply_play(self._play('context', {'uri': self.state.track_context.uri, 'offset': self.state.selected}), item['spotify_id'])
         elif self.state.view is View.NOW_PLAYING:
-            self._apply_play(self._play('queue_track', f"spotify:track:{item['spotify_id']}"), item['spotify_id'], expect_event=True)
+            self._apply_play(self._play('queue_track', f"spotify:track:{item['spotify_id']}"), item['spotify_id'])
         else:
             self._play_resource(item)
 
@@ -267,12 +287,12 @@ class TuiController:
             self._expect_context(uri)
             self.start_load()
 
-    def _apply_play(self, response, playing_id, expect_event=False):
+    def _apply_play(self, response, playing_id):
         response = self._unwrap_response(response)
         self.state.message = response.get('error') or response.get('notification', '')
         if 'error' not in response:
             self.state.playing_id = playing_id
-            self.state.expected_playing_id = playing_id if expect_event else None
+            self._expect_playing_item(playing_id)
 
     def _apply_command(self, response):
         response = self._unwrap_response(response)

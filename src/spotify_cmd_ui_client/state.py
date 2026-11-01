@@ -78,6 +78,18 @@ class TuiState:
         self.playing_disc_number = item.get('disc_number')
         self.playing_id = self._display_playing_id(self.playback_id)
 
+    def matches_item(self, item, spotify_id):
+        if item.get('id') == spotify_id:
+            return True
+        expected_item = next((entry for entry in self.items if entry.get('spotify_id') == spotify_id), None)
+        return bool(
+            expected_item
+            and item.get('track_number') is not None
+            and item.get('disc_number') is not None
+            and item.get('track_number') == expected_item.get('track_number')
+            and item.get('disc_number') == expected_item.get('disc_number')
+        )
+
     def _display_playing_id(self, playback_id):
         direct_match = next((item for item in self.items if item.get('spotify_id') == playback_id), None)
         if direct_match:
