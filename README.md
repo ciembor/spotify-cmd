@@ -81,6 +81,32 @@ socket_buffer_size = 1024
 * **socket_path** specifies the Unix socket path for the daemon. Defaults to '/run/spotify-cmd/spotify-cmd.sock' on Linux and '/tmp/spotify-cmd-daemon.sock' on other systems.
 * **socket_buffer_size** defines the buffer size for socket communication. Defaults to 1024.
 
+## Playback device
+
+`spotify-cmd` controls a Spotify Connect device; it does not play audio itself. Choose one of these options.
+
+### Option 1: spotifyd
+
+Run [spotifyd](https://github.com/Spotifyd/spotifyd) on the machine that should play music, then set its Spotify Connect device name in `config.ini`:
+
+```ini
+[SPOTIFY]
+device_name = My spotifyd
+```
+
+This is the suitable option for headless machines and dedicated audio devices. For a headless systemd service, see the spotifyd instructions above.
+
+### Option 2: Official Spotify app
+
+Open the official Spotify desktop, mobile, or web app and make it the active playback device in Spotify Connect. Leave `device_name` unset to let `spotify-cmd` use the active device, or set it to the exact name displayed by the Spotify app:
+
+```ini
+[SPOTIFY]
+device_name = MacBook Pro
+```
+
+The official app must be open and visible as a Spotify Connect device before sending a playback command. If another device is active, selecting `device_name` makes `spotify-cmd` transfer playback to that named device.
+
 ## Commands
 
 `spotify-cmd` offers the following commands:
