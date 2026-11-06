@@ -381,6 +381,24 @@ def test_view_colors_loading_and_curses_errors(monkeypatch):
     CursesView().draw(Screen(), state)
 
 
+def test_view_uses_configured_terminal_colours(monkeypatch):
+    import curses
+    pairs = []
+    monkeypatch.setattr(curses, 'has_colors', lambda: True)
+    monkeypatch.setattr(curses, 'start_color', lambda: None)
+    monkeypatch.setattr(curses, 'use_default_colors', lambda: None)
+    monkeypatch.setattr(curses, 'init_pair', lambda *args: pairs.append(args))
+    monkeypatch.setattr(curses, 'color_pair', lambda pair: pair)
+    monkeypatch.setattr(curses, 'COLORS', 16, raising=False)
+
+    view = CursesView({'playing_foreground': 'bright_magenta', 'bar_background': 'cyan'})
+    view.initialize_colors()
+
+    assert (view.BAR_PAIR, curses.COLOR_BLACK, curses.COLOR_CYAN) in pairs
+    assert (view.PLAYING_PAIR, curses.COLOR_MAGENTA + 8, -1) in pairs
+    assert (view.ERROR_PAIR, curses.COLOR_BLACK, curses.COLOR_RED + 8) in pairs
+
+
 class FakeSocket:
     def __init__(self, receive=b''):
         self.receive, self.closed, self.connected = receive, False, []

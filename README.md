@@ -214,6 +214,30 @@ socket_buffer_size = 1024
 * **socket_path** specifies the Unix socket path for the daemon. Defaults to '/run/spotify-cmd/spotify-cmd.sock' on Linux and '/tmp/spotify-cmd-daemon.sock' on other systems.
 * **socket_buffer_size** defines the buffer size for socket communication. Defaults to 1024.
 
+### Terminal UI colours
+
+Add an optional `[SPOTIFY_CMD_UI]` section to configure `spotify-cmd-ui`:
+
+```ini
+[SPOTIFY_CMD_UI]
+color_text_foreground = default
+color_bar_foreground = black
+color_bar_background = white
+color_selected_foreground = black
+color_selected_background = bright_white
+color_progress_foreground = bright_white
+color_progress_background = bright_black
+color_playing_foreground = green
+color_error_foreground = black
+color_error_background = bright_red
+```
+
+Each value may be `default`, `black`, `red`, `green`, `yellow`, `blue`,
+`magenta`, `cyan`, or `white`, including a `bright_` prefix such as
+`bright_black`. On terminals with only eight colours, bright values fall back
+to their regular equivalent. The defaults above preserve the existing bars and
+selection while using green for the playing item and red for errors.
+
 New user templates explicitly use `/tmp/spotify-cmd-<uid>.sock`, writable
 without systemd on Linux and macOS. Service templates use
 `/run/spotify-cmd/spotify-cmd.sock`. Existing socket settings are preserved;
@@ -233,6 +257,10 @@ device_name = My spotifyd
 ```
 
 This is the suitable option for headless machines and dedicated audio devices. For a headless systemd service, see the spotifyd instructions above.
+
+Due to issues currently affecting spotifyd, using
+[Soloist or soloistd](https://github.com/MopigamesYT/soloistd) is recommended
+instead.
 
 ### Option 2: Official Spotify app
 

@@ -2,6 +2,27 @@ import os
 import platform
 import configparser
 
+
+UI_COLOR_OPTIONS = {
+    'default', 'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white',
+    'bright_black', 'bright_red', 'bright_green', 'bright_yellow', 'bright_blue',
+    'bright_magenta', 'bright_cyan', 'bright_white',
+}
+
+UI_COLOR_DEFAULTS = {
+    'text_foreground': 'default',
+    'bar_foreground': 'black',
+    'bar_background': 'white',
+    'selected_foreground': 'black',
+    'selected_background': 'bright_white',
+    'progress_foreground': 'bright_white',
+    'progress_background': 'bright_black',
+    'playing_foreground': 'green',
+    'error_foreground': 'black',
+    'error_background': 'bright_red',
+}
+
+
 class Config:
     _instance = None
 
@@ -49,10 +70,22 @@ class Config:
         self.socket_buffer_size = config.getint('SPOTIFY_CMD_DAEMON', 'socket_buffer_size', fallback=1024)
         self.mpris_enabled = config.getboolean('SPOTIFY_CMD_DAEMON', 'mpris_enabled', fallback=False)
         self.mpris_bus_name = config.get('SPOTIFY_CMD_DAEMON', 'mpris_bus_name', fallback='org.mpris.MediaPlayer2.spotify_cmd')
+        self.ui_colors = {
+            name: config.get('SPOTIFY_CMD_UI', f'color_{name}', fallback=default).strip().lower()
+            for name, default in UI_COLOR_DEFAULTS.items()
+        }
         if self.socket_buffer_size <= 0:
             raise ValueError('socket_buffer_size must be positive')
         if not os.path.isabs(self.socket_path):
             raise ValueError('socket_path must be absolute')
+        invalid_ui_colors = {
+            name: color for name, color in self.ui_colors.items() if color not in UI_COLOR_OPTIONS
+        }
+        if invalid_ui_colors:
+            name, color = next(iter(invalid_ui_colors.items()))
+            raise ValueError(
+                f'color_{name} must be one of: {", ".join(sorted(UI_COLOR_OPTIONS))}; got {color!r}'
+            )
         if require_credentials:
             self.validate_credentials()
 

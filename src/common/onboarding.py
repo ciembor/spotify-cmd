@@ -30,6 +30,14 @@ redirect_uri = http://127.0.0.1:8888/callback
 socket_path = {socket_path}
 socket_buffer_size = 1024
 mpris_enabled = false
+
+# Optional terminal UI colours. Supported values: default, black, red, green,
+# yellow, blue, magenta, cyan, white, and their bright_ variants.
+[SPOTIFY_CMD_UI]
+# color_playing_foreground = green
+# color_selected_background = bright_white
+# color_error_foreground = black
+# color_error_background = bright_red
 '''
     try:
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)

@@ -461,7 +461,7 @@ def test_view_draws_navigation_tabs_and_a_playback_progress_footer():
     view.draw(screen, state)
 
     text_calls = [call for call in screen.calls if call[0] == 'addnstr']
-    active = next(call for call in text_calls if call[3] == ' 3 Artists ')
+    active = next(call for call in text_calls if call[3] == ' 2 Artists ')
     inactive = next(call for call in text_calls if call[3] == ' 1 Albums ')
     assert active[5] != inactive[5]
     passed_time = next(call for call in text_calls if call[3] == '0:30 /')
@@ -526,7 +526,7 @@ def test_view_keeps_selected_playing_text_dark_and_other_playing_text_bold():
             {'spotify_id': 'playing', 'name': 'Playing'},
         ],
         selected=0,
-        playing_id='playing',
+        playing_id='selected',
         visible_rows=2,
     )
     view = CursesView()
@@ -534,8 +534,13 @@ def test_view_keeps_selected_playing_text_dark_and_other_playing_text_bold():
     view.draw(Screen(), state)
 
     selected = next(call for call in calls if 'Selected' in call[2])
-    playing = next(call for call in calls if 'Playing' in call[2])
     assert selected[4] == view.selected_style
+
+    state.selected = 0
+    state.playing_id = 'playing'
+    calls.clear()
+    view.draw(Screen(), state)
+    playing = next(call for call in calls if 'Playing' in call[2])
     assert playing[4] == curses.A_BOLD
 
 

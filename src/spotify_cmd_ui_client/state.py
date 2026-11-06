@@ -4,13 +4,13 @@ from enum import IntEnum
 
 class View(IntEnum):
     ALBUMS = 0
-    PLAYLISTS = 1
-    ARTISTS = 2
+    ARTISTS = 1
+    PLAYLISTS = 2
     NOW_PLAYING = 3
 
 
-VIEW_RESOURCES = {View.ALBUMS: 'albums', View.PLAYLISTS: 'playlists', View.ARTISTS: 'artists', View.NOW_PLAYING: 'queue'}
-VIEW_TITLES = {View.ALBUMS: 'Albums', View.PLAYLISTS: 'Playlists', View.ARTISTS: 'Artists', View.NOW_PLAYING: 'Now playing'}
+VIEW_RESOURCES = {View.ALBUMS: 'albums', View.ARTISTS: 'artists', View.PLAYLISTS: 'playlists', View.NOW_PLAYING: 'queue'}
+VIEW_TITLES = {View.ALBUMS: 'Albums', View.ARTISTS: 'Artists', View.PLAYLISTS: 'Playlists', View.NOW_PLAYING: 'Now playing'}
 
 
 @dataclass(frozen=True)

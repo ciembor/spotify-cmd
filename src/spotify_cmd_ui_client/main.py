@@ -11,10 +11,10 @@ from common.onboarding import prepare
 class TuiApplication:
     """Composition root for the independent terminal UI client."""
 
-    def __init__(self, client_factory=None):
+    def __init__(self, client_factory=None, ui_colors=None):
         gateway = SpotifyGateway(client_factory) if client_factory else SpotifyGateway()
         self.controller = TuiController(gateway)
-        self.view = CursesView()
+        self.view = CursesView(ui_colors)
 
     def run(self, screen):
         curses.curs_set(0)
@@ -80,5 +80,5 @@ def main(argv=None):
     if args.version:
         print(get_pkg_version())
         return
-    prepare()
-    curses.wrapper(TuiApplication().run)
+    config = prepare()
+    curses.wrapper(TuiApplication(ui_colors=config.ui_colors).run)
