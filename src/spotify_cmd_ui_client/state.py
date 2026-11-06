@@ -96,7 +96,11 @@ class TuiState:
         return (item.get('linked_from') or {}).get('id') == spotify_id
 
     def _display_playing_id(self, playback_id):
-        direct_match = next((item for item in self.items if item.get('spotify_id') == playback_id), None)
+        direct_match = next(
+            (item for item in self.items if item.get('spotify_id') == playback_id
+             or (item.get('linked_from') or {}).get('id') == playback_id),
+            None,
+        )
         if direct_match:
             return direct_match['spotify_id']
         linked_match = next((item for item in self.items

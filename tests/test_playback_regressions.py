@@ -24,6 +24,8 @@ def test_album_uses_account_market_to_match_playback_id():
     assert state.playing_id == state.items[0]['spotify_id'] == 'available'
     state.update_playing_item({'id': 'available'})
     assert state.playing_id == 'available'
+    state.update_playing_item({'id': 'catalogue'})
+    assert state.playing_id == 'available'
 
 
 @pytest.mark.parametrize('notification', ['Playback of resource started.', 'Seeked to 28s.'])

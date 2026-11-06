@@ -70,9 +70,11 @@ def test_presenters_format_each_search_type():
     assert PlaylistsPresenter([playlist()]).format()[0]['owner'] == 'Owner'
     track = TracksPresenter([{
         'id': 't', 'name': 'Track', 'artists': [{'name': 'Artist'}], 'duration_ms': 123_000,
+        'linked_from': {'id': 'original'},
     }]).format()[0]
     assert track['name'] == 'Track'
     assert track['duration_ms'] == 123_000
+    assert track['linked_from'] == {'id': 'original'}
     assert EpisodesPresenter([{'id': 'e', 'name': 'Episode', 'description': 'Desc'}]).format()[0]['description'] == 'Desc'
     assert ShowsPresenter([{'id': 's', 'name': 'Show', 'description': 'Desc'}]).format()[0]['type'] == 'shows'
 
