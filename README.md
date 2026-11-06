@@ -220,6 +220,7 @@ Add an optional `[SPOTIFY_CMD_UI]` section to configure `spotify-cmd-ui`:
 
 ```ini
 [SPOTIFY_CMD_UI]
+separator = ●
 color_text_foreground = default
 color_bar_foreground = black
 color_bar_background = white
@@ -237,6 +238,8 @@ Each value may be `default`, `black`, `red`, `green`, `yellow`, `blue`,
 `bright_black`. On terminals with only eight colours, bright values fall back
 to their regular equivalent. The defaults above preserve the existing bars and
 selection while using green for the playing item and red for errors.
+`separator` is placed between an album or track title and its artist; it
+defaults to `●`.
 
 New user templates explicitly use `/tmp/spotify-cmd-<uid>.sock`, writable
 without systemd on Linux and macOS. Service templates use

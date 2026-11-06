@@ -28,6 +28,7 @@ def test_config_reads_explicit_file_and_defaults(tmp_path, monkeypatch):
     assert config.socket_buffer_size == 1024
     assert config.ui_colors['playing_foreground'] == 'green'
     assert config.ui_colors['error_background'] == 'bright_red'
+    assert config.ui_separator == '●'
     assert Config.get_instance() is config
 
 
@@ -35,15 +36,21 @@ def test_config_reads_terminal_ui_colours_and_rejects_unknown_names(tmp_path, mo
     config_file = tmp_path / 'config.ini'
     config_file.write_text(
         '[SPOTIFY]\nclient_id = id\nclient_secret = secret\n'
-        '[SPOTIFY_CMD_UI]\ncolor_playing_foreground = bright_magenta\n'
+        '[SPOTIFY_CMD_UI]\ncolor_playing_foreground = bright_magenta\nseparator = /\n'
     )
     monkeypatch.setenv('SPOTIFY_CMD_CONFIG', str(config_file))
 
     assert Config.get_instance().ui_colors['playing_foreground'] == 'bright_magenta'
+    assert Config.get_instance().ui_separator == '/'
 
     Config._instance = None
     config_file.write_text('[SPOTIFY_CMD_UI]\ncolor_bar_background = ultraviolet\n')
     with pytest.raises(ValueError, match='color_bar_background'):
+        Config.get_instance(require_credentials=False)
+
+    Config._instance = None
+    config_file.write_text('[SPOTIFY_CMD_UI]\nseparator = \n')
+    with pytest.raises(ValueError, match='separator'):
         Config.get_instance(require_credentials=False)
 
 

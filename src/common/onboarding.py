@@ -34,6 +34,7 @@ mpris_enabled = false
 # Optional terminal UI colours. Supported values: default, black, red, green,
 # yellow, blue, magenta, cyan, white, and their bright_ variants.
 [SPOTIFY_CMD_UI]
+separator = ●
 # color_playing_foreground = green
 # color_selected_background = bright_white
 # color_error_foreground = black

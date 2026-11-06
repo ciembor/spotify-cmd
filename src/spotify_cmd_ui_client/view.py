@@ -14,8 +14,9 @@ class CursesView:
     PLAYING_PAIR = 5
     ERROR_PAIR = 6
 
-    def __init__(self, colors=None):
+    def __init__(self, colors=None, separator='●'):
         self.colors = UI_COLOR_DEFAULTS | (colors or {})
+        self.separator = separator
         self.bar_style = curses.A_REVERSE
         self.selected_style = curses.A_REVERSE
         self.progress_style = curses.A_REVERSE
@@ -104,21 +105,21 @@ class CursesView:
         marker = '▶ ' if playing else '  '
         duration = self._duration_label(item, state.view)
         label_width = max(width - len(duration) - 2, 0) if duration else max(width - 1, 0)
-        label = self._truncate(f'{marker}{self._item_label(item, state.view)}', label_width)
+        label = self._truncate(f'{marker}{self._item_label(item, state.view, self.separator)}', label_width)
         screen.addnstr(row + 1, 0, label, label_width, style)
         if duration:
             self._add_text(screen, row + 1, width - len(duration) - 1, duration, width, style)
 
     @staticmethod
-    def _item_label(item, view):
+    def _item_label(item, view, separator='●'):
         name = item['name']
         if item.get('is_playable') is False:
             name += ' [unavailable]'
         artists = item.get('artists')
         if (view is View.ALBUMS or item.get('type') == 'albums') and artists:
-            return f'{name}  ●  {artists}'
+            return f'{name}  {separator}  {artists}'
         if view is View.NOW_PLAYING and artists:
-            return f'{name}  ●  {artists}'
+            return f'{name}  {separator}  {artists}'
         return name
 
     @classmethod

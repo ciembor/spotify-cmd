@@ -74,6 +74,7 @@ class Config:
             name: config.get('SPOTIFY_CMD_UI', f'color_{name}', fallback=default).strip().lower()
             for name, default in UI_COLOR_DEFAULTS.items()
         }
+        self.ui_separator = config.get('SPOTIFY_CMD_UI', 'separator', fallback='●')
         if self.socket_buffer_size <= 0:
             raise ValueError('socket_buffer_size must be positive')
         if not os.path.isabs(self.socket_path):
@@ -86,6 +87,8 @@ class Config:
             raise ValueError(
                 f'color_{name} must be one of: {", ".join(sorted(UI_COLOR_OPTIONS))}; got {color!r}'
             )
+        if not self.ui_separator or '\n' in self.ui_separator or '\r' in self.ui_separator:
+            raise ValueError('separator must be a non-empty single-line value')
         if require_credentials:
             self.validate_credentials()
 
