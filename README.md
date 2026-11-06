@@ -1,4 +1,11 @@
-# 📻 spotify-cmd v0.9.11
+# 📻 spotify-cmd v0.9.15
+
+Version 0.9.15 fixes playback markers without an active track, playlist track
+selection, progress updates, and terminal rendering of multiline errors and
+wide characters. Space now asks the daemon to toggle playback using Spotify's
+current state; restart the daemon and terminal UI after upgrading. Stop is a
+no-op when playback is already paused or absent, and the UI ignores seeking
+while paused. Errors use bright white text on a red background by default.
 
 `spotify-cmd` is a Spotify client that allows controlling the playback of **albums, playlists, and followed artists** from a user's library (based on names or Spotify URIs) and individual tracks (based solely on Spotify URIs). The application is intended for use with [spotifyd](https://github.com/Spotifyd/spotifyd), but it works with any Spotify-enabled device.
 
@@ -229,8 +236,8 @@ color_selected_background = bright_white
 color_progress_foreground = bright_white
 color_progress_background = bright_black
 color_playing_foreground = green
-color_error_foreground = black
-color_error_background = bright_red
+color_error_foreground = bright_white
+color_error_background = red
 ```
 
 Each value may be `default`, `black`, `red`, `green`, `yellow`, `blue`,

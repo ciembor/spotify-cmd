@@ -64,6 +64,26 @@ def test_equal_disc_and_track_numbers_do_not_identify_a_song():
     assert state.playing_id == 'other'
 
 
+def test_toggle_accepts_daemon_state_and_cancels_pending_seek(ui):
+    ui.state.is_playing = False
+    ui._pending_seek_target = 10000
+    ui._command = lambda command: {'is_playing': False, 'notification': 'paused'}
+    ui.toggle_playback()
+    assert ui.state.is_playing is False
+    assert ui._pending_seek_target is None
+
+
+def test_stop_clears_playing_state_and_blocks_seek(ui):
+    ui.state.is_playing = True
+    ui.state.duration_ms = 60000
+    ui._pending_seek_target = 10000
+    ui._command = lambda command: {'notification': 'stopped'}
+    ui.stop()
+    ui.seek(1)
+    assert not ui.state.is_playing
+    assert ui._pending_seek_target is None
+
+
 def test_delayed_list_cannot_undo_an_explicit_play(ui):
     ui._load_token = 1
     ui._apply_play({'notification': 'started'}, 'new')

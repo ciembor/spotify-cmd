@@ -37,8 +37,8 @@ mpris_enabled = false
 separator = ●
 # color_playing_foreground = green
 # color_selected_background = bright_white
-# color_error_foreground = black
-# color_error_background = bright_red
+# color_error_foreground = bright_white
+# color_error_background = red
 '''
     try:
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)

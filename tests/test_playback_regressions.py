@@ -6,6 +6,54 @@ from spotify_cmd_ui_client.state import TuiState, TrackContext
 from spotify_cmd_ui_client.view import CursesView
 
 
+def test_clock_advances_while_waiting_for_confirmation_and_syncs(monkeypatch):
+    from spotify_cmd_ui_client.controller import TuiController
+    clock = [100.0]
+    monkeypatch.setattr('spotify_cmd_ui_client.controller.time.monotonic', lambda: clock[0])
+    controller = TuiController()
+    try:
+        state = controller.state
+        state.items = [{'spotify_id': 'new', 'duration_ms': 60000, 'linked_from': {'id': 'original'}}]
+        controller._apply_play({'notification': 'started'}, 'new')
+        clock[0] += 2
+        controller._events.put({'event': 'state_changed', 'state': {'item': {'id': 'old'}, 'progress_ms': 45000}})
+        controller.tick()
+        assert state.progress_ms == 2000
+        controller._events.put({'event': 'state_changed', 'state': {
+            'item': {'id': 'original'}, 'progress_ms': 1800, 'is_playing': True}})
+        controller.tick()
+        assert state.expected_playing_id is None
+        assert state.progress_ms == 1800
+        state.is_playing = False
+        clock[0] += 2
+        controller.tick()
+        assert state.progress_ms == 1800
+    finally:
+        controller.close()
+
+
+def test_missing_playback_does_not_mark_first_album_or_unavailable_track():
+    for row in ({'spotify_id': 'album'}, {'spotify_id': None, 'is_playable': False}):
+        state = TuiState(items=[row])
+        state.update_playing_item({})
+        assert state.playing_id is None
+
+
+def test_play_resets_previous_time_immediately():
+    from spotify_cmd_ui_client.controller import TuiController
+    controller = TuiController()
+    try:
+        controller.state.items = [{'spotify_id': 'new', 'duration_ms': 246000}]
+        controller.state.progress_ms = 90000
+        controller.state.duration_ms = 600000
+        controller._apply_play({'notification': 'started'}, 'new')
+        assert controller.state.progress_ms == 0
+        assert controller.state.duration_ms == 246000
+        assert controller.state.is_playing
+    finally:
+        controller.close()
+
+
 def test_album_uses_account_market_to_match_playback_id():
     class API:
         def album(self, _):

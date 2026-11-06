@@ -396,7 +396,25 @@ def test_view_uses_configured_terminal_colours(monkeypatch):
 
     assert (view.BAR_PAIR, curses.COLOR_BLACK, curses.COLOR_CYAN) in pairs
     assert (view.PLAYING_PAIR, curses.COLOR_MAGENTA + 8, -1) in pairs
-    assert (view.ERROR_PAIR, curses.COLOR_BLACK, curses.COLOR_RED + 8) in pairs
+    assert (view.ERROR_PAIR, curses.COLOR_WHITE + 8, curses.COLOR_RED) in pairs
+
+
+def test_safe_text_clips_cells_sanitizes_controls_and_survives_resize():
+    import curses
+    screen = Screen()
+    screen.getmaxyx = lambda: (2, 7)
+    CursesView._add_text(screen, 1, 0, '界\n\t\x1bXlong', 100, 0)
+    assert screen.calls[-1][1][2] == '界   X'
+    CursesView._add_text(screen, 1, 0, 'e\u0301', 7, 0)
+    assert screen.calls[-1][1][2] == 'e\u0301'
+    before = len(screen.calls)
+    for row, column in ((-1, 0), (2, 0), (0, -1), (0, 7)):
+        CursesView._add_text(screen, row, column, 'text', 7, 0)
+    assert len(screen.calls) == before
+    def resized(*args):
+        raise curses.error('addnwstr() returned ERR')
+    screen.addnstr = resized
+    CursesView()._draw_footer(screen, TuiState(message='error\nsecond line', message_is_error=True), 2, 7)
 
 
 class FakeSocket:

@@ -18,8 +18,8 @@ UI_COLOR_DEFAULTS = {
     'progress_foreground': 'bright_white',
     'progress_background': 'bright_black',
     'playing_foreground': 'green',
-    'error_foreground': 'black',
-    'error_background': 'bright_red',
+    'error_foreground': 'bright_white',
+    'error_background': 'red',
 }
 
 

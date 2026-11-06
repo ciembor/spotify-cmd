@@ -418,7 +418,7 @@ def test_play_pause_stop_and_shuffle_use_daemon_commands():
     controller.toggle_shuffle()
 
     assert gateway.commands == [
-        ('play', None, None), ('pause', None, None), ('stop', None, None),
+        ('toggle', None, None), ('toggle', None, None), ('stop', None, None),
         ('set', 'shuffle', 'on'), ('set', 'shuffle', 'off'),
     ]
     assert not controller.state.shuffle_enabled
@@ -592,6 +592,12 @@ def test_controller_coalesces_seeks_without_blocking_the_terminal():
 
     controller.state.duration_ms = 60_000
     controller.state.progress_ms = 10_000
+    controller.seek(1)
+    controller.seek(-1)
+    assert controller.state.progress_ms == 10_000
+    assert controller._pending_seek_target is None
+    assert gateway.commands == []
+    controller.state.is_playing = True
     controller.seek(1)
     controller.seek(1)
     assert controller.state.progress_ms == 30_000

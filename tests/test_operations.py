@@ -175,7 +175,7 @@ def test_pause_is_idempotent_when_playback_is_already_paused():
 
 def test_stop_retries_seek_without_a_device_id_when_spotify_rejects_the_device():
     class Spotify:
-        def current_playback(self): return {'is_playing': False}
+        def current_playback(self): return {'is_playing': True, 'item': {'id': 'track'}}
         def pause_playback(self, **_): pass
         def seek_track(self, _position, **kwargs):
             self.calls.append(kwargs)
@@ -205,7 +205,7 @@ def test_start_playback_validates_existence_and_selects_api(monkeypatch):
     spotify.playlist_items = lambda *args, **kwargs: {'items': [{'track': {'id': str(i)}} for i in range(3)]}
     operations.start_playback(spotify, 'd', 'spotify:playlist:p', offset=2)
     assert spotify.calls[-1] == ('start_playback', {
-        'context_uri': 'spotify:playlist:p', 'device_id': 'd', 'offset': {'position': 2}, 'position_ms': 0,
+        'context_uri': 'spotify:playlist:p', 'device_id': 'd', 'offset': {'uri': 'spotify:track:2'}, 'position_ms': 0,
     })
     assert operations.start_playback(spotify, 'd', 'spotify:artist:r', 'Artist')['notification'] == 'Playback of artist Artist started.'
     assert spotify.calls[-1] == ('start_playback', {
@@ -286,10 +286,21 @@ def test_pause_and_stop_propagate_non_device_spotify_failures():
     with pytest.raises(SpotifyException):
         operations.pause_playback(FailingSpotify(), 'device')
     class SeekFailingSpotify:
-        def current_playback(self): return {'is_playing': False}
+        def current_playback(self): return {'is_playing': True, 'item': {'id': 'track'}}
+        def pause_playback(self, **kwargs): pass
         def seek_track(self, *_args, **_kwargs): raise SpotifyException(401, -1, 'expired')
     with pytest.raises(SpotifyException):
         operations.stop_playback(SeekFailingSpotify(), 'device')
+
+
+@pytest.mark.parametrize('playback', [None, {}, {'is_playing': False},
+                                    {'is_playing': False, 'item': {'id': 'track'}, 'progress_ms': 10000}])
+def test_stop_without_playback_does_not_pause_or_seek(playback):
+    class API:
+        def current_playback(self): return playback
+        def pause_playback(self, **kwargs): pytest.fail('Unexpected pause')
+        def seek_track(self, *args, **kwargs): pytest.fail('Unexpected seek')
+    assert operations.stop_playback(API(), 'device') == {'notification': 'Playback already stopped.'}
 
 
 def test_play_queue_track_uses_current_context_when_available():

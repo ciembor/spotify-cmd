@@ -56,6 +56,7 @@ class TuiController:
         self._context_load_uri = None
         self._playback_generation = 0
         self._subscription_stop = threading.Event()
+        self._progress_updated_at = None
 
     def start(self):
         self.start_load()
@@ -71,6 +72,12 @@ class TuiController:
         self.state.resize(height)
 
     def tick(self):
+        now = time.monotonic()
+        if (self._progress_updated_at is not None and self.state.is_playing
+                and self.state.duration_ms and not self._seeking):
+            self.state.progress_ms = min(self.state.duration_ms, self.state.progress_ms
+                                         + round((now - self._progress_updated_at) * 1000))
+        self._progress_updated_at = now
         self._process_events()
         self._process_results()
         self._process_seek_results()
@@ -109,6 +116,7 @@ class TuiController:
             # includes its current item and updates it normally.
             if not self._seeking:
                 self.state.progress_ms = playback_state.get('progress_ms', self.state.progress_ms) or 0
+                self._progress_updated_at = time.monotonic()
             self.state.duration_ms = playback_state.get('item', {}).get('duration_ms', self.state.duration_ms) or 0
             self.state.is_playing = playback_state.get('is_playing', self.state.is_playing)
             self.state.shuffle_enabled = playback_state.get('shuffle_state', self.state.shuffle_enabled)
@@ -256,15 +264,19 @@ class TuiController:
             self.state.move(amount)
 
     def toggle_playback(self):
-        command = 'pause' if self.state.is_playing else 'play'
-        if self._apply_command(self._command(command)):
-            self.state.is_playing = not self.state.is_playing
+        response = self._unwrap_response(self._command('toggle'))
+        if self._apply_command(response):
+            self.state.is_playing = response.get('is_playing', not self.state.is_playing)
+            self._pending_seek_target = None
+            self._progress_updated_at = time.monotonic()
 
     def stop(self):
-        self._apply_command(self._command('stop'))
+        if self._apply_command(self._command('stop')):
+            self.state.is_playing = False
+            self._pending_seek_target = None
 
     def seek(self, direction):
-        if not self.state.duration_ms:
+        if not self.state.is_playing or not self.state.duration_ms:
             return
         target = self.state.progress_ms + direction * self.SEEK_MILLISECONDS
         self._pending_seek_target = min(max(target, 0), self.state.duration_ms)
@@ -333,6 +345,9 @@ class TuiController:
         if 'error' not in response:
             self._playback_generation += 1
             self.state.show_playing_context(uri, item['name'], resource_type)
+            self.state.is_playing = True
+            self.state.progress_ms = 0
+            self.state.duration_ms = 0
             self._expect_context(uri)
             self._context_load_uri = uri
             self.start_load()
@@ -344,6 +359,11 @@ class TuiController:
             self._playback_generation += 1
             self.state.playing_id = playing_id
             self.state.playback_id = playing_id
+            self.state.progress_ms = 0
+            self.state.duration_ms = next((item.get('duration_ms') or 0 for item in self.state.items
+                                           if item.get('spotify_id') == playing_id), 0)
+            self._progress_updated_at = time.monotonic()
+            self.state.is_playing = True
             self._expect_playing_item(playing_id)
 
     def _apply_command(self, response):

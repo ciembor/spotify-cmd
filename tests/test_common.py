@@ -27,7 +27,7 @@ def test_config_reads_explicit_file_and_defaults(tmp_path, monkeypatch):
     assert config.spotify_redirect_uri == 'http://127.0.0.1:8888/callback'
     assert config.socket_buffer_size == 1024
     assert config.ui_colors['playing_foreground'] == 'green'
-    assert config.ui_colors['error_background'] == 'bright_red'
+    assert config.ui_colors['error_background'] == 'red'
     assert config.ui_separator == '●'
     assert Config.get_instance() is config
 

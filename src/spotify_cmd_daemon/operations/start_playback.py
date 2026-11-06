@@ -20,12 +20,10 @@ def start_playback(spotipy_client, device_id, resource_uri, resource_name=None, 
                                    if track['is_playable'] and (offset is None or track['context_position'] == offset)), None)
                     if target is None:
                         return {'error': 'No playable track at the requested playlist position.'}
-                    # Starting a playlist must explicitly select its first
-                    # playable item.  An explicit TUI selection, however,
-                    # needs the entry position so duplicate track URIs remain
-                    # distinguishable.
-                    offset = ({'uri': target.get('uri') or f"spotify:track:{target['id']}"}
-                              if offset is None else {'position': target['context_position']})
+                    # Connect players may omit unavailable entries when interpreting
+                    # numeric offsets. Identify the track in the original context.
+                    original = target.get('linked_from') or target
+                    offset = {'uri': original.get('uri') or f"spotify:track:{original['id']}"}
                 arguments = {
                     'context_uri': resource_uri,
                     'device_id': device_id,

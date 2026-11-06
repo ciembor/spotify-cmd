@@ -1,5 +1,6 @@
 import curses
 import time
+import unicodedata
 
 from common.config import UI_COLOR_DEFAULTS
 from .state import VIEW_TITLES, View
@@ -78,14 +79,14 @@ class CursesView:
         for index, title in enumerate(VIEW_TITLES[view] for view in View):
             tab = f' {index + 1} {title} '
             style = self._inverted(self.bar_style) | curses.A_BOLD if state.view.value == index else self.bar_style
-            screen.addnstr(0, column, tab, max(width - column, 0), style)
+            self._add_text(screen, 0, column, tab, width, style)
             column += len(tab)
 
     @staticmethod
     def _draw_loading(screen, height, width):
         loading = 'LOADING'
         style = curses.A_BOLD if int(time.monotonic() * 2) % 2 else curses.A_NORMAL
-        screen.addnstr(height // 2, max((width - len(loading)) // 2, 0), loading, width - 1, style)
+        CursesView._add_text(screen, height // 2, max((width - len(loading)) // 2, 0), loading, width, style)
 
     def _draw_items(self, screen, state, width):
         visible_items = state.items[state.first_visible:state.first_visible + state.visible_rows]
@@ -93,7 +94,7 @@ class CursesView:
             self._draw_item(screen, row, state.first_visible + row, item, state, width)
 
     def _draw_item(self, screen, row, index, item, state, width):
-        playing = item.get('spotify_id') == state.playing_id
+        playing = bool(state.playing_id) and item.get('spotify_id') == state.playing_id
         selected = index == state.selected
         if selected:
             style = self.selected_style
@@ -106,7 +107,7 @@ class CursesView:
         duration = self._duration_label(item, state.view)
         label_width = max(width - len(duration) - 2, 0) if duration else max(width - 1, 0)
         label = self._truncate(f'{marker}{self._item_label(item, state.view, self.separator)}', label_width)
-        screen.addnstr(row + 1, 0, label, label_width, style)
+        self._add_text(screen, row + 1, 0, label, label_width + 1, style)
         if duration:
             self._add_text(screen, row + 1, width - len(duration) - 1, duration, width, style)
 
@@ -141,7 +142,7 @@ class CursesView:
         footer = state.message or hint
         style = self.error_style if state.message_is_error else self.bar_style
         self._paint_row(screen, height - 1, width, style)
-        screen.addnstr(height - 1, 0, footer, max(width - 1, 0), style)
+        self._add_text(screen, height - 1, 0, footer, width, style)
 
     def _draw_progress(self, screen, state, height, width):
         ratio = min(max(state.progress_ms / state.duration_ms, 0), 1)
@@ -164,10 +165,27 @@ class CursesView:
 
     @staticmethod
     def _add_text(screen, row, column, text, width, style):
-        """Draw text without addressing curses' inaccessible bottom-right cell."""
-        available_width = max(width - column - 1, 0)
-        if available_width:
-            screen.addnstr(row, column, text, available_width, style)
+        """Fit one line into terminal cells, including during a resize."""
+        height, actual_width = screen.getmaxyx()
+        if row < 0 or row >= height or column < 0:
+            return
+        available_width = max(min(width, actual_width) - column - 1, 0)
+        cells, characters = 0, []
+        for character in text:
+            category = unicodedata.category(character)
+            if category.startswith('C') or character in '\n\r\t':
+                character = ' '
+            size = 0 if unicodedata.combining(character) else (2 if unicodedata.east_asian_width(character) in ('W', 'F') else 1)
+            if cells + size > available_width:
+                break
+            characters.append(character)
+            cells += size
+        if available_width and characters:
+            try:
+                screen.addnstr(row, column, ''.join(characters), available_width, style)
+            except curses.error:
+                # The terminal can shrink between getmaxyx() and this write.
+                pass
 
     @staticmethod
     def _inverted(style):

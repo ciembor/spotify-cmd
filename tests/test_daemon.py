@@ -65,6 +65,20 @@ def test_controller_routes_commands_and_returns_errors(monkeypatch):
     assert controller.handle_get({'type': 'unknown'}) == {'error': 'Unsupported resource: unknown'}
 
 
+@pytest.mark.parametrize('context', ['artist', 'album', 'playlist'])
+@pytest.mark.parametrize('playing', [True, False])
+def test_toggle_uses_spotify_state_in_every_context(monkeypatch, context, playing):
+    controller, spotify = make_controller(monkeypatch)
+    spotify.current_playback = lambda: {'is_playing': playing, 'context': {'uri': f'spotify:{context}:x'}}
+    calls = []
+    for name in ('pause_playback', 'resume_playback'):
+        monkeypatch.setattr(f'spotify_cmd_daemon.spotify_controller.operations.{name}',
+                            lambda *args, name=name: calls.append(name) or {'notification': 'ok'})
+    result = controller.execute_command(SocketMessage('request', {'command': 'toggle'}))
+    assert calls == ['pause_playback' if playing else 'resume_playback']
+    assert result['is_playing'] is not playing
+
+
 def test_controller_routes_context_queue_and_library_getters(monkeypatch):
     controller, _ = make_controller(monkeypatch)
     monkeypatch.setattr(controller, 'ensure_device_active', lambda **kwargs: None)

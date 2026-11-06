@@ -93,9 +93,15 @@ class TuiState:
     def matches_item(self, item, spotify_id):
         if item.get('id') == spotify_id:
             return True
-        return (item.get('linked_from') or {}).get('id') == spotify_id
+        if (item.get('linked_from') or {}).get('id') == spotify_id:
+            return True
+        return any(row.get('spotify_id') == spotify_id
+                   and (row.get('linked_from') or {}).get('id') == item.get('id')
+                   for row in self.items) if item.get('id') else False
 
     def _display_playing_id(self, playback_id):
+        if not playback_id:
+            return None
         direct_match = next(
             (item for item in self.items if item.get('spotify_id') == playback_id
              or (item.get('linked_from') or {}).get('id') == playback_id),
@@ -104,7 +110,7 @@ class TuiState:
         if direct_match:
             return direct_match['spotify_id']
         linked_match = next((item for item in self.items
-                             if item.get('spotify_id') == self.linked_playback_id), None)
+                             if self.linked_playback_id and item.get('spotify_id') == self.linked_playback_id), None)
         return linked_match['spotify_id'] if linked_match else playback_id
 
     def select_view(self, view):

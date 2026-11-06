@@ -79,6 +79,11 @@ class SpotifyController:
                 self.ensure_device_active(force_play=False)
             if command == 'play':
                 return self.handle_play(command_data)
+            elif command == 'toggle':
+                playing = bool(self._current_playback().get('is_playing'))
+                operation = operations.pause_playback if playing else operations.resume_playback
+                response = operation(self.spotipy_client, self.device_id)
+                return {**response, 'is_playing': not playing} if 'error' not in response else response
             elif command == 'pause':
                 return operations.pause_playback(self.spotipy_client, self.device_id)
             elif command == 'stop':

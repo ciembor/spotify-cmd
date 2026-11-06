@@ -43,14 +43,21 @@ def test_start_uses_first_playable_original_position_and_resets_time():
                         'offset': {'uri': 'spotify:track:replacement'}, 'position_ms': 0}
 
 
-def test_start_uses_playlist_position_only_for_an_explicit_track_selection():
+def test_start_resolves_explicit_playlist_position_to_track_uri():
     api = Playlist()
 
     start_playback(api, 'device', 'spotify:playlist:p')
     assert api.play['offset'] == {'uri': 'spotify:track:replacement'}
 
     start_playback(api, 'device', 'spotify:playlist:p', offset=3)
-    assert api.play['offset'] == {'position': 3}
+    assert api.play['offset'] == {'uri': 'spotify:track:replacement'}
+
+
+def test_start_targets_original_context_uri_for_relinked_track():
+    api = Playlist()
+    api.pages[1][1]['track']['linked_from'] = {'id': 'original'}
+    start_playback(api, 'device', 'spotify:playlist:p', offset=3)
+    assert api.play['offset'] == {'uri': 'spotify:track:original'}
 
 
 def test_unavailable_selection_and_empty_playlist_do_not_send_play():
